@@ -48,16 +48,18 @@ and some authentication credentials.
 Repeatable
 ----------
 
-The "stack" created by Neckbeard is done entirely via ``Chef`` solo and
-configuration files. Not only does this make your servers consistent, but it
-means you can use ``Vagrant`` for consistent local development machine setup.
+The "stack" created by Neckbeard is done entirely via ``Chef`` solo 
+and configuration files. 
+Not only does this make your servers consistent, 
+but it means you can use ``Vagrant`` 
+for consistent local development machine setup.
 
 Getting Started
 ---------------
 
 The easiest way to get started is to run::
 
-    $ neckbeard create
+    $ neckbeard init
 
 From the root of your project's source repo and follow the interactive prompts. 
 It will help you create the appropriate config files, roughly following this
@@ -72,8 +74,16 @@ process:
     * What additional services your app requires (mysql, memcached, rabbitmq)
     * How many different neckbeard ``Environments`` you need (production, staging, etc)
 
+Next, tell Neckbeard how it should access the AWS API::
+
+    $ neckbeard login
+
+You'll be access for you AWS credentials
+and a label for those credentials
+(production, dev, staging, etc.).
+
 In the advanced getting started, you can see how to customize your environment
-and tweak your high availability gaurantees.
+and tweak your high availability guarantees.
 
 The How
 -------
@@ -83,6 +93,7 @@ Getting Started Advanced
 
 1. Defining AWS Credentials in ``~/.neckbeard/auth.yml``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Turns out, if you want to do stuff in the cloud, you need to pay someone. Step
 0 is to get yourself an AWS account. Step 1 is create a
 ``~/.neckbeard/auth.yml`` file that looks something like this::
@@ -93,6 +104,8 @@ Turns out, if you want to do stuff in the cloud, you need to pay someone. Step
     production:
         aws_access_key: BBBBBBBBBBBBBB
         aws_secret_key: BBBBBBBBBBBBBB
+
+If you likee the gui, you can just run ``$ neckbeard login``.
 
 This is likely to be the only neckbeard file that you don't keep under source
 control. It's a simple yaml configuration file containing named sets of AWS
