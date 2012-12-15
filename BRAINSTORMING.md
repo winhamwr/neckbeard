@@ -1,17 +1,17 @@
 
 # Core things
 
-* Tracking arbitrary cloud resources (ec2 nodes, rds nodes)
-* Tracking environments (production/staging)
-* Tracking and incrementing generations (active/pending/old)
-* Launching cloud resources and seeding them with data
-* Determining resource health and operational status
-* Defining packagers to slug-up the proprietary app code with its requirements
-* A Neckbeard Stack that knows how to take the slug from a packager and run it
+* Tracking arbitrary cloud resources (ec2 nodes, rds nodes)- Extensible
+* Tracking environments (production/staging)- Core
+* Tracking and incrementing generations (active/pending/old)- Core
+* Launching cloud resources and seeding them with data- Extensible
+* Determining resource health and operational status- Extensible
+* Defining packagers to slug-up the proprietary app code with its requirements- Extensible
+* A Neckbeard Stack that knows how to take the slug from a packager and run it- Core
 * Load balancing
-* Defining backing services via chef-solo roles and distributing them to appropriate cloud resources
-* Configure in terms of the number of processes (eg. web/celery worker) and automatic provisioning of resources to meet that configuration
-* Availability-zone high availability targets, under which you can't scale
+* Defining backing services via chef-solo roles and distributing them to appropriate cloud resources- Core (Service definitions are Extensible)
+* Configure hierarchy of deep-marged parameters for node- Core: type -> size -> environment -> availability zone
+* Availability-zone-aware high availability targets, under which you can't scale- Extensible
 
 # Neckbeard Components
 
