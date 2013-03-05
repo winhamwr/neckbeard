@@ -1,0 +1,70 @@
+aws:
+  region: US-East-1
+  &availability_zones: 
+    - us-east-1b
+    - us-east-1d
+base_ami_id: ami-bffa6fd6
+ami_bucket: 'neckbeard_dynamic_multi_az_ami'
+terrarium_bucket: 'neckbeard_dynamic_multi_az_terrarium'
+node_types:
+  &app00:
+    roles: !APP_SERVER_ROLES
+    name: '%(node_type_name)s-%2(node_index_for_type)d'
+    aws:
+      availability_zone: !availability_zones[0]  
+      security_groups:
+        - beta-app
+        - beta-memcached
+        - beta-celery-backend
+        - beta-celery-worker
+      instance_type: c1.medium
+    health_check:
+      status_url: '/site_status/'
+      status_contains: NO_CRITICAL
+      status_check_timeout: !HEALTH_CHECK_TIMEOUT
+    seed_node:
+      environment: live
+      node: app00
+    conf:
+      user: ubuntu
+      ebs:
+        vols:
+          fs: !APP_FS_VOL_CONF
+      newrelic:
+        environment: None
+      celery:
+        queues: !APP_CELERY_QUEUES
+    provisioner:
+      path: !APP_PROVISIONER
+  &app01: !app00
+    seed_node:
+      environment: live
+      node: app01
+    aws:
+      availability_zone: !availability_zones[1]  
+  &dyno00: !app00
+    roles: !DYNO_SERVER_ROLES
+    seed_node: {}
+    conf:
+      celery:
+        queues: !DYNO_CELERY_QUEUES
+    provisioner:
+      path: !DYNO_PROVISIONER
+  &dyno01: !dyno00
+    aws:
+      availability_zone: !availability_zones[1]  
+environments:
+  beta:
+    ec2:
+      app0: !app00
+        minimum_count: 1
+        maximum_count: 1
+        aws:
+          elastic_ips:
+            - 184.72.236.214
+          keypair:beta_app0
+
+
+
+
+
