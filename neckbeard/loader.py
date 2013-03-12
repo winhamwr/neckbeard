@@ -36,7 +36,11 @@ class NeckbeardLoader(object):
         'invalid_configuration_directory': (
             "The configuration directory %(file_path)s "
             "does not exist or is not accessible."
-        )
+        ),
+        'invalid_json': (
+            "%(file_path)s has invalid JSON. Check for trailing commas. "
+            "Error: %(error)s"
+        ),
     }
     CONFIG_STRUCTURE = {
         "constants": None,
@@ -60,18 +64,19 @@ class NeckbeardLoader(object):
 
     def _add_validation_error(self, file_path, error_type, extra_context=None):
         if not file_path in self.validation_errors:
-            self.validation_errors[file_path] = []
+            self.validation_errors[file_path] = {}
+
+        if not error_type in self.validation_errors[file_path]:
+            self.validation_errors[file_path][error_type] = []
 
         context = {'file_path': file_path}
         if extra_context:
             context.update(extra_context)
 
-        validation_error = (
-            error_type,
-            self.VALIDATION_MESSAGES[error_type] % context
-        )
-        logger.debug("Validation Error: %s", validation_error[1])
-        self.validation_errors[file_path].append(validation_error)
+        error_message = self.VALIDATION_MESSAGES[error_type] % context
+        logger.debug("Validation Error: %s", error_message)
+
+        self.validation_errors[file_path][error_type].append(error_message)
 
     def _get_json_from_file(self, file_path):
         with open(file_path, 'r') as fp:
@@ -80,6 +85,11 @@ class NeckbeardLoader(object):
             except ValueError as e:
                 logger.warning("Error parsing JSON file: %s", file_path)
                 logger.warning("%s", e)
+                self._add_validation_error(
+                    file_path,
+                    'invalid_json',
+                    extra_context={'error': e},
+                )
                 raise
 
     def _get_name_from_json_path(self, file_path):
@@ -106,7 +116,6 @@ class NeckbeardLoader(object):
                 root_configs[conf_file] = self._get_json_from_file(fp)
             except ValueError:
                 root_configs[conf_file] = {}
-                # TODO: Log a validation error
                 continue
 
         return root_configs
@@ -121,7 +130,6 @@ class NeckbeardLoader(object):
                 configs[name] = self._get_json_from_file(environment_config_fp)
             except ValueError:
                 configs[name] = {}
-                # TODO: Log a validation error
                 continue
 
         return configs
@@ -154,7 +162,6 @@ class NeckbeardLoader(object):
                     )
                 except ValueError:
                     configs[aws_type][name] = {}
-                    # TODO: Log a validation error
                     continue
 
         return configs
