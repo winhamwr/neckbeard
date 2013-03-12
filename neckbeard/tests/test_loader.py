@@ -81,22 +81,26 @@ class TestFileLoading(unittest.TestCase):
         )
         node_templates = loader.raw_configuration['node_templates']
         self.assertEqual(
-            node_templates['ec2']['web'].get('name'),
+            node_templates['ec2']['web'].get('node_template_name'),
             'web',
         )
         self.assertEqual(
-            node_templates['rds']['master'].get('name'),
+            node_templates['rds']['master'].get('node_template_name'),
             'master',
         )
         self.assertEqual(
-            node_templates['elb']['api'].get('name'),
+            node_templates['elb']['api'].get('node_template_name'),
             'api',
         )
 
     def test_invalid_path(self):
         # We give a nice error if the `configuration_directory` doesn't exist
         # or we can't access it
-        pass
+        loader = self._get_loader_for_fixture('does_not_exist')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        self.assertEqual(len(loader.validation_errors), 1)
 
     def test_invalid_json(self):
         # If a file is invalid JSON, we should display that as a validation

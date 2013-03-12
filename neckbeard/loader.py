@@ -32,6 +32,12 @@ class NeckbeardLoader(object):
           actually do that (you can't put an `ec2` node_template in an `rds`
           directory).
     """
+    VALIDATION_MESSAGES = {
+        'invalid_configuration_directory': (
+            "The configuration directory %(file_path)s "
+            "does not exist or is not accessible."
+        )
+    }
     CONFIG_STRUCTURE = {
         "constants": None,
         "secrets": None,
@@ -52,6 +58,20 @@ class NeckbeardLoader(object):
         self.validation_errors = {}
         self.raw_configuration = copy(self.CONFIG_STRUCTURE)
 
+    def _add_validation_error(self, file_path, error_type, extra_context=None):
+        if not file_path in self.validation_errors:
+            self.validation_errors[file_path] = []
+
+        context = {'file_path': file_path}
+        if extra_context:
+            context.update(extra_context)
+
+        validation_error = (
+            error_type,
+            self.VALIDATION_MESSAGES[error_type] % context
+        )
+        logger.debug("Validation Error: %s", validation_error[1])
+        self.validation_errors[file_path].append(validation_error)
 
     def _get_json_from_file(self, file_path):
         with open(file_path, 'r') as fp:
@@ -140,6 +160,13 @@ class NeckbeardLoader(object):
         return configs
 
     def _load_configuration_files(self, configuration_directory):
+        if not os.path.exists(configuration_directory):
+            self._add_validation_error(
+                configuration_directory,
+                'invalid_configuration_directory',
+            )
+            return {}
+
         config = self._load_root_configuration_files(configuration_directory)
 
         environments = self._load_environment_files(configuration_directory)
@@ -155,7 +182,6 @@ class NeckbeardLoader(object):
         self.raw_configuration = self._load_configuration_files(
             self.configuration_directory,
         )
-
 
     def configuration_is_valid(self):
         self._validate_configuration()
