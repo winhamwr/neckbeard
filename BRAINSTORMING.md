@@ -10,7 +10,7 @@
 * A Neckbeard Stack that knows how to take the slug from a packager and run it- Core
 * Load balancing
 * Defining backing services via chef-solo roles and distributing them to appropriate cloud resources- Core (Service definitions are Extensible)
-* Configure hierarchy of deep-marged parameters for node- Core: type -> size -> environment -> availability zone
+* Configure hierarchy of deep-merged parameters for node- Core: type -> size -> environment -> availability zone
 * Availability-zone-aware high availability targets, under which you can't scale- Extensible
 
 # Neckbeard Components
