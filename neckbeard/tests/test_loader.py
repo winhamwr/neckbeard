@@ -18,13 +18,13 @@ class TestFileLoading(unittest.TestCase):
     def _get_validation_errors(self, loader, config_file, error_type=None):
         full_fp = path.join(loader.configuration_directory, config_file)
         if full_fp not in loader.validation_errors:
-            return None
+            return []
 
         if error_type is None:
             return loader.validation_errors[full_fp]
 
         if error_type not in loader.validation_errors[full_fp]:
-            return None
+            return []
 
         return loader.validation_errors[full_fp][error_type]
 
@@ -127,11 +127,39 @@ class TestFileLoading(unittest.TestCase):
             'constants.json',
             'invalid_json',
         )
-        self.assertTrue(len(validation_errors), 1)
+        self.assertEqual(len(validation_errors), 1)
 
     def test_missing_files(self):
         # We should ensure that all of the required files are present
-        assert False
+        loader = self._get_loader_for_fixture('empty')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'constants.json',
+            'missing_file',
+        )
+        print loader.validation_errors
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'secrets.json',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'secrets.tpl.json',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments',
+            'missing_environment',
+        )
+        self.assertEqual(len(validation_errors), 1)
 
     def test_node_aws_type_mismatch(self):
         # We should ensure that `node_aws_type` matches the directory where the

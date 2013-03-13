@@ -41,6 +41,12 @@ class NeckbeardLoader(object):
             "%(file_path)s has invalid JSON. Check for trailing commas. "
             "Error: %(error)s"
         ),
+        'missing_file': "%(file_path)s is required, but missing.",
+        'missing_environment': (
+            "You need at least one environment configuration, "
+            "or what are we really doing here? "
+            "I recommend starting with <%(file_path)s/staging.json>"
+        ),
     }
     CONFIG_STRUCTURE = {
         "constants": None,
@@ -78,19 +84,38 @@ class NeckbeardLoader(object):
 
         self.validation_errors[file_path][error_type].append(error_message)
 
+    def print_validation_errors(self):
+        for file_path, error_types in self.validation_errors.items():
+            logger.warning("%s errors:", file_path)
+            for error_type, errors in error_types.items():
+                logger.warning("  %s:", file_path)
+                for error in errors:
+                    logger.warning("    %s:", error)
+                logger.warning("")
+            logger.warning("")
+
     def _get_json_from_file(self, file_path):
-        with open(file_path, 'r') as fp:
-            try:
-                return json.load(fp)
-            except ValueError as e:
-                logger.warning("Error parsing JSON file: %s", file_path)
-                logger.warning("%s", e)
-                self._add_validation_error(
-                    file_path,
-                    'invalid_json',
-                    extra_context={'error': e},
-                )
-                raise
+        try:
+            with open(file_path, 'r') as fp:
+                try:
+                    return json.load(fp)
+                except ValueError as e:
+                    logger.warning("Error parsing JSON file: %s", file_path)
+                    logger.warning("%s", e)
+                    self._add_validation_error(
+                        file_path,
+                        'invalid_json',
+                        extra_context={'error': e},
+                    )
+                    return {}
+        except IOError as e:
+            logger.warning("Error opening JSON file: %s", file_path)
+            logger.warning("%s", e)
+            self._add_validation_error(
+                file_path,
+                'missing_file',
+            )
+            return {}
 
     def _get_name_from_json_path(self, file_path):
         """
@@ -112,11 +137,7 @@ class NeckbeardLoader(object):
         ]
         for conf_file in root_conf_files:
             fp = os.path.join(configuration_directory, '%s.json' % conf_file)
-            try:
-                root_configs[conf_file] = self._get_json_from_file(fp)
-            except ValueError:
-                root_configs[conf_file] = {}
-                continue
+            root_configs[conf_file] = self._get_json_from_file(fp)
 
         return root_configs
 
@@ -126,11 +147,14 @@ class NeckbeardLoader(object):
 
         for environment_config_fp in all_json_files(environment_dir):
             name = self._get_name_from_json_path(environment_config_fp)
-            try:
-                configs[name] = self._get_json_from_file(environment_config_fp)
-            except ValueError:
-                configs[name] = {}
-                continue
+            configs[name] = self._get_json_from_file(environment_config_fp)
+
+        if len(configs) == 0:
+            # There were no environment files. That's a problem
+            self._add_validation_error(
+                environment_dir,
+                'missing_environment',
+            )
 
         return configs
 
@@ -156,13 +180,9 @@ class NeckbeardLoader(object):
 
             for node_config_fp in all_json_files(node_type_dir):
                 name = self._get_name_from_json_path(node_config_fp)
-                try:
-                    configs[aws_type][name] = self._get_json_from_file(
-                        node_config_fp,
-                    )
-                except ValueError:
-                    configs[aws_type][name] = {}
-                    continue
+                configs[aws_type][name] = self._get_json_from_file(
+                    node_config_fp,
+                )
 
         return configs
 
@@ -199,6 +219,10 @@ class NeckbeardLoader(object):
         return True
 
     def get_configured_neckbeard(self):
+        if not self.configuration_is_valid:
+            self.print_validation_errors()
+            return None
+
         pass
 
 
