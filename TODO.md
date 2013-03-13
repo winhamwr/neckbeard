@@ -76,10 +76,9 @@
 
 ## Use Heroku [Buildpack](https://devcenter.heroku.com/articles/buildpack-api) to run the app
 
-* Don't really want to use gunicorn, though. Do we want to ditch `Procfile`?
-  Trade-off is being language agnostic versus having uwsgi magic.
+* All ENVIRONMENT config is rough for uwsgi. Can it be mixed?
 * What about putting Nginx in front as a reverse-proxy? This is super-useful to
-  guard against slow clients.
+  guard against slow clients. Perhaps just a single config?
 
 ## Manage backups via a coordinator
 
@@ -94,3 +93,17 @@
   provisioning nodes)
 * Modify Littlechef so that it pulls down the environment from S3
 * Use another coordinator to log deploys and point to their bundle
+
+## Find a sane log-management strategy
+
+* Find a tool to at least management the app's output
+* Define an API for a router Eg. [logplex](https://github.com/heroku/logplex), [fluentd](https://github.com/fluent/fluentd)
+* Define an API for a collector of at least app logs (loggly, splunk, etc)
+
+## Con someone in to writing MySQL and PostgreSQL services
+
+* It'd be super-sweet if they could do replication and HA also
+
+## Make [admin processes](http://www.12factor.net/admin-processes) easy
+
+* Fabric supports interactivity! Hooray!
