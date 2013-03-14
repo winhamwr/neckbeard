@@ -94,11 +94,56 @@
 * Modify Littlechef so that it pulls down the environment from S3
 * Use another coordinator to log deploys and point to their bundle
 
+## Support scaling node counts up/down via `scaling_group`
+
+Add neckbeard commands to alter the number of nodes in a given `scaling_group`
+and to view the number of nodes
+  * Will require a separate coordinator for "Deployment Environment Variables"
+    or something. Think Heroku-style config management.
+  * Change the node coordinator schema so that there are both types of nodes,
+    unique counter for node based on the type, and a unique name of a node. Eg.
+    type: dyno0, name dyno0-00, number 00 and type: app0, name: app0, number 00
+ * Changing the number of nodes down pulls nodes out of operation (services
+   will need a hook to handle this: eg stopping celery workers). If pulling
+   them out of operation fails, changing the numbers but leaving the same will
+   retry.
+ * Increasing the number of nodes doesn't take affect until the next deploy.
+   What can we do to make that next deploy really fast?
+ * `view` now displays the counts, highlights if the count is higher than
+   current reality, highlights if there are still running out-of-operation
+   nodes, makes a big deal if there are still running in-operation nodes that
+   shouldn't be there
+
+## Management for degraded nodes
+
+### Interactive single-node mark-terminated
+
+Sometimes, a node is degraded and we need to stop deploying to it, but either
+can't terminate it via the GUI, or don't yet want to.
+
+Support terminating specific nodes with an interactive command. Should list
+options and let you hit a corresponding number.
+
+### Add the ability to mark a node as "degraded"
+
+When a node is degraded, `up` should spin up a replacement, but should keep the
+current node around until it's ready to be replaced. This will simplify the
+process of replacing nodes with minimal reduced-redundancy.
+
+## Add a coordinator for recording deploys
+
+* Stores things like time, result, command, deployer, path to the bundle, environment
+* Ideally, allows locking and can help clients do queing
+
 ## Find a sane log-management strategy
 
 * Find a tool to at least management the app's output
-* Define an API for a router Eg. [logplex](https://github.com/heroku/logplex), [fluentd](https://github.com/fluent/fluentd)
-* Define an API for a collector of at least app logs (loggly, splunk, etc)
+* Define an API for different routers and collectors so that folks can mix and match
+  * [logplex](https://github.com/heroku/logplex)
+  * [fluentd](https://github.com/fluent/fluentd)
+  * loggly
+  * splunk
+  * logstash
 
 ## Con someone in to writing MySQL and PostgreSQL services
 
@@ -107,3 +152,10 @@
 ## Make [admin processes](http://www.12factor.net/admin-processes) easy
 
 * Fabric supports interactivity! Hooray!
+
+## Use Apache Zookeeper to make configuration responsive
+
+* All of the nodes should run zookeeper
+* Zookeeper for pull-based High Availability (a memcached node goes down and
+  configs update without requiring another deploy)
+* Makes failover for redis, mysql, etc etc possible without manual intervention
