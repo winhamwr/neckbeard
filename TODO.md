@@ -1,13 +1,5 @@
 ## Parse and validate configuration
 
-* NeckbeardLoader object that takes a path to a .neckbeard directory
-  * Rounds up the various JSON files
-  * Parses them as JSON
-  * Validates matching `node_aws_type`, `node_template_name` to files
-  * Creates a Neckbeard object by passing in the validated JSON files
-  * Tests:
-    * Missing required files
-    * Not matching required name fields according to dir structure
 * Neckbeard CLI invocation to hook in to NeckbeardLoader
 * Validate the secrets.json and secrets.tpl.json relationship
 * Validate required fields for node_templates (ec2, rds, elb)

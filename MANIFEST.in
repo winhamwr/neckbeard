@@ -1,0 +1,13 @@
+include AUTHORS
+include LICENSE
+include README.rst
+include TODO.md
+include BRAINSTORMING.md
+include MANIFEST.in
+include setup.py
+recursive-include neckbeard *.py
+recursive-include neckbeard/tests/fixture_configs *
+recursive-include docs *
+recursive-include examples *
+recursive-include requirements *.txt
+prune *.pyc

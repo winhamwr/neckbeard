@@ -356,7 +356,7 @@ class NeckbeardLoader(object):
 
         return True
 
-    def get_configured_neckbeard(self):
+    def get_neckbeard_configuration(self):
         if not self.configuration_is_valid:
             self.print_validation_errors()
             return None
