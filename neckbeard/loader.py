@@ -34,18 +34,25 @@ class NeckbeardLoader(object):
     """
     VALIDATION_MESSAGES = {
         'invalid_configuration_directory': (
-            "The configuration directory %(file_path)s "
+            "The configuration directory "
             "does not exist or is not accessible."
         ),
         'invalid_json': (
-            "%(file_path)s has invalid JSON. Check for trailing commas. "
+            "Invalid JSON. Check for trailing commas. "
             "Error: %(error)s"
         ),
-        'missing_file': "%(file_path)s is required, but missing.",
+        'missing_file': "File is required, but missing.",
         'missing_environment': (
             "You need at least one environment configuration, "
             "or what are we really doing here? "
             "I recommend starting with <%(file_path)s/staging.json>"
+        ),
+        'missing_option': (
+            "The option '%(option_name)s' is required, but missing."
+        ),
+        'file_option_mismatch': (
+            "The option '%(option_name)s' doesn't match its folder structure. "
+            "Expected: '%(expected)s' But found: '%(actual)s'"
         ),
     }
     CONFIG_STRUCTURE = {
@@ -83,6 +90,12 @@ class NeckbeardLoader(object):
         logger.debug("Validation Error: %s", error_message)
 
         self.validation_errors[file_path][error_type].append(error_message)
+
+    def _add_path_relative_validation_error(
+        self, relative_path, error_type, extra_context=None):
+
+        file_path = os.path.join(self.configuration_directory, relative_path)
+        self._add_validation_error(file_path, error_type, extra_context)
 
     def print_validation_errors(self):
         for file_path, error_types in self.validation_errors.items():
@@ -168,7 +181,7 @@ class NeckbeardLoader(object):
             return configs
 
         # Gather up node_templates for the various AWS node types
-        aws_types = ['ec2', 'rds', 'elb']
+        aws_types = configs.keys()
         for aws_type in aws_types:
             node_type_dir = os.path.join(node_templates_dir, aws_type)
             if not os.path.exists(node_type_dir):
@@ -204,11 +217,85 @@ class NeckbeardLoader(object):
 
         return config
 
+    def _validate_option_agrees(
+        self, relative_path, name, expected_value, config, required=True):
+
+        actual_value = config.get(name)
+        if actual_value is None:
+            if required:
+                self._add_path_relative_validation_error(
+                    relative_path,
+                    'missing_option',
+                    extra_context={'option_name': name},
+                )
+                return
+        elif actual_value != expected_value:
+            self._add_path_relative_validation_error(
+                relative_path,
+                'file_option_mismatch',
+                extra_context={
+                    'option_name': name,
+                    'expected': expected_value,
+                    'actual': actual_value,
+                },
+            )
+
+    def _validate_node_template_agreement(self, raw_configuration):
+        """
+        Ensure that the `node_aws_type` and `node_template_name` for each
+        `node_template` configuration actually agrees with the folder structure
+        in which it was contained.
+
+        A `node_templates/ec2/foo.json` template file should not say it's an
+        `rds` node called `bar`.
+        """
+        raw_node_template_config = raw_configuration['node_templates']
+
+        for aws_type, node_templates in raw_node_template_config.items():
+            for node_template_name, config in node_templates.items():
+                # Check for existence and folder structure mismatch
+                relative_path = 'node_templates/%s/%s.json' % (
+                    aws_type,
+                    node_template_name,
+                )
+                self._validate_option_agrees(
+                    relative_path,
+                    'node_aws_type',
+                    aws_type,
+                    config,
+                )
+                self._validate_option_agrees(
+                    relative_path,
+                    'node_template_name',
+                    node_template_name,
+                    config,
+                )
+
+    def _validate_environment_name_agreement(self, raw_configuration):
+        environments_config = raw_configuration['environments']
+
+        for environment_name, config in environments_config.items():
+            # Check for existence and folder structure mismatch
+            relative_path = 'environments/%s.json' % environment_name
+            self._validate_option_agrees(
+                relative_path,
+                'name',
+                environment_name,
+                config,
+            )
+
     def _validate_configuration(self):
         self.validation_errors = {}
         self.raw_configuration = self._load_configuration_files(
             self.configuration_directory,
         )
+        if len(self.validation_errors) > 0:
+            # If there are errors loading/parsing the files, don't attempt
+            # further validation
+            return
+
+        self._validate_node_template_agreement(self.raw_configuration)
+        self._validate_environment_name_agreement(self.raw_configuration)
 
     def configuration_is_valid(self):
         self._validate_configuration()

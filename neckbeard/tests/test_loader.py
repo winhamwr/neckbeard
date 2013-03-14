@@ -140,7 +140,6 @@ class TestFileLoading(unittest.TestCase):
             'constants.json',
             'missing_file',
         )
-        print loader.validation_errors
         self.assertEqual(len(validation_errors), 1)
         validation_errors = self._get_validation_errors(
             loader,
@@ -161,26 +160,279 @@ class TestFileLoading(unittest.TestCase):
         )
         self.assertEqual(len(validation_errors), 1)
 
+
+class TestValidation(unittest.TestCase):
+
+    def _get_loader_for_fixture(self, fixture_name):
+        configuration_directory = path.join(FIXTURE_CONFIGS_DIR, fixture_name)
+
+        return NeckbeardLoader(configuration_directory)
+
+    def _get_validation_errors(self, loader, config_file, error_type=None):
+        full_fp = path.join(loader.configuration_directory, config_file)
+        if full_fp not in loader.validation_errors:
+            return []
+
+        if error_type is None:
+            return loader.validation_errors[full_fp]
+
+        if error_type not in loader.validation_errors[full_fp]:
+            return []
+
+        return loader.validation_errors[full_fp][error_type]
+
     def test_node_aws_type_mismatch(self):
         # We should ensure that `node_aws_type` matches the directory where the
         # node_template JSON file lives
-        assert False
+        loader = self._get_loader_for_fixture('minimal')
+        loader.validation_errors = {}
+
+        raw_configuration = {
+            'node_templates': {
+                'ec2': {
+                    'wrong_type': {
+                        'node_template_name': 'wrong_type',
+                        'node_aws_type': 'mismatch',
+                    },
+                    'both_wrong': {
+                        'node_template_name': 'mismatch',
+                        'node_aws_type': 'mismatch',
+                    },
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'ec2',
+                    },
+                },
+                'foo': {
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'foo',
+                    },
+                    'both_wrong': {
+                        'node_template_name': 'mismatch',
+                        'node_aws_type': 'mismatch',
+                    },
+                },
+            },
+        }
+
+        loader._validate_node_template_agreement(raw_configuration)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/wrong_type.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/both_wrong.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/correct.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 0)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/both_wrong.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/correct.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 0)
 
     def test_node_template_name_mismatch(self):
         # We should ensure that `node_template_name` matches the filename
         # (minus JSON) where the node_template JSON file lives
-        assert False
+        loader = self._get_loader_for_fixture('minimal')
+        loader.validation_errors = {}
+
+        raw_configuration = {
+            'node_templates': {
+                'ec2': {
+                    'wrong_name': {
+                        'node_template_name': 'mismatch',
+                        'node_aws_type': 'ec2',
+                    },
+                    'both_wrong': {
+                        'node_template_name': 'mismatch',
+                        'node_aws_type': 'mismatch',
+                    },
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'ec2',
+                    },
+                },
+                'foo': {
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'foo',
+                    },
+                    'both_wrong': {
+                        'node_template_name': 'mismatch',
+                        'node_aws_type': 'mismatch',
+                    },
+                },
+            },
+        }
+
+        loader._validate_node_template_agreement(raw_configuration)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/wrong_name.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/both_wrong.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/correct.json',
+        )
+        self.assertEqual(len(validation_errors), 0)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/both_wrong.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/correct.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 0)
+
+    def test_node_template_required_options(self):
+        loader = self._get_loader_for_fixture('minimal')
+        loader.validation_errors = {}
+
+        raw_configuration = {
+            'node_templates': {
+                'ec2': {
+                    'missing_type': {
+                        'node_template_name': 'missing_type',
+                    },
+                    'missing_name': {
+                        'node_aws_type': 'ec2',
+                    },
+                    'missing': {},
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'ec2',
+                    },
+                },
+                'foo': {
+                    'correct': {
+                        'node_template_name': 'correct',
+                        'node_aws_type': 'foo',
+                    },
+                    'missing': {},
+                },
+            },
+        }
+        loader._validate_node_template_agreement(raw_configuration)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/missing_type.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/missing_name.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/missing.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/ec2/correct.json',
+        )
+        self.assertEqual(len(validation_errors), 0)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/missing.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'node_templates/foo/correct.json',
+        )
+        self.assertEqual(len(validation_errors), 0)
 
     def test_environment_name_mismatch(self):
         # We should ensure that, for environments, the `name` matches the filename
         # (minus JSON) where the JSON file lives
-        assert False
+        loader = self._get_loader_for_fixture('minimal')
+        loader.validation_errors = {}
+
+        raw_configuration = {
+            'environments': {
+                'correct': {
+                    'name': 'correct',
+                },
+                'mismatch': {
+                    'name': 'wrong',
+                },
+                'missing': {},
+            },
+        }
+        loader._validate_environment_name_agreement(raw_configuration)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments/correct.json',
+        )
+        self.assertEqual(len(validation_errors), 0)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments/mismatch.json',
+            'file_option_mismatch',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments/missing.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 1)
 
     def test_neckbeard_conf_version_required(self):
         # All configs everywhere need a `neckbeard_conf_version`
-        assert False
-
-    def test_node_templates_not_required(self):
-        # If no node templates exist or none exist of a particular type, that's
-        # not a problem
         assert False
