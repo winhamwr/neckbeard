@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 
-import logging
 import argparse
+import logging
+import os.path
 
 from neckbeard.loader import NeckbeardLoader
 
@@ -8,9 +10,12 @@ logger = logging.getLogger('cli')
 
 COMMANDS = ['check']
 def main():
+    logging.basicConfig(level=logging.INFO)
+
     parser = argparse.ArgumentParser(description='Deploy all the things!')
     parser.add_argument(
         'command',
+        nargs='?',
         choices=COMMANDS,
         default='check',
         help="The neckbeard action you'd like to take",

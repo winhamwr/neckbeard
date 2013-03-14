@@ -5,8 +5,6 @@ import os
 from copy import copy
 
 logger = logging.getLogger('loader')
-logging.basicConfig()
-logger.setLevel(logging.DEBUG)
 
 def all_json_files(directory):
     """
@@ -107,11 +105,8 @@ class NeckbeardLoader(object):
         for file_path, error_types in self.validation_errors.items():
             logger.warning("%s errors:", file_path)
             for error_type, errors in error_types.items():
-                logger.warning("  %s:", file_path)
                 for error in errors:
-                    logger.warning("    %s:", error)
-                logger.warning("")
-            logger.warning("")
+                    logger.warning("    %s", error)
 
     def _get_json_from_file(self, file_path):
         try:
@@ -119,8 +114,8 @@ class NeckbeardLoader(object):
                 try:
                     return json.load(fp)
                 except ValueError as e:
-                    logger.warning("Error parsing JSON file: %s", file_path)
-                    logger.warning("%s", e)
+                    logger.debug("Error parsing JSON file: %s", file_path)
+                    logger.debug("%s", e)
                     self._add_validation_error(
                         file_path,
                         'invalid_json',
@@ -128,8 +123,8 @@ class NeckbeardLoader(object):
                     )
                     return {}
         except IOError as e:
-            logger.warning("Error opening JSON file: %s", file_path)
-            logger.warning("%s", e)
+            logger.debug("Error opening JSON file: %s", file_path)
+            logger.debug("%s", e)
             self._add_validation_error(
                 file_path,
                 'missing_file',
@@ -357,7 +352,7 @@ class NeckbeardLoader(object):
         return True
 
     def get_neckbeard_configuration(self):
-        if not self.configuration_is_valid:
+        if not self.configuration_is_valid():
             self.print_validation_errors()
             return None
 
