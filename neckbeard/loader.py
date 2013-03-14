@@ -66,6 +66,12 @@ class NeckbeardLoader(object):
             "elb": {},
         },
     }
+    ROOT_CONF_FILES = [
+        'constants',
+        'secrets',
+        'secrets.tpl',
+    ]
+    VERSION_OPTION = 'neckbeard_conf_version'
 
     def __init__(self, configuration_directory):
         self.configuration_directory = configuration_directory
@@ -143,12 +149,7 @@ class NeckbeardLoader(object):
 
     def _load_root_configuration_files(self, configuration_directory):
         root_configs = {}
-        root_conf_files = [
-            'constants',
-            'secrets',
-            'secrets.tpl',
-        ]
-        for conf_file in root_conf_files:
+        for conf_file in self.ROOT_CONF_FILES:
             fp = os.path.join(configuration_directory, '%s.json' % conf_file)
             root_configs[conf_file] = self._get_json_from_file(fp)
 
@@ -284,6 +285,50 @@ class NeckbeardLoader(object):
                 config,
             )
 
+    def _validate_neckbeard_conf_version(self, raw_configuration):
+
+        # Check all of the root configuration files
+        for root_conf in self.ROOT_CONF_FILES:
+            if not raw_configuration[root_conf].get(self.VERSION_OPTION):
+                relative_path = '%s.json' % root_conf
+                self._add_path_relative_validation_error(
+                    relative_path,
+                    'missing_option',
+                    extra_context={
+                        'option_name': self.VERSION_OPTION,
+                    },
+                )
+
+        # Check all of the environment configs
+        for name, config in raw_configuration['environments'].items():
+            if not config.get(self.VERSION_OPTION):
+                relative_path = 'environments/%s.json' % name
+                self._add_path_relative_validation_error(
+                    relative_path,
+                    'missing_option',
+                    extra_context={
+                        'option_name': self.VERSION_OPTION,
+                    },
+                )
+
+
+        # Check all of the node_templates
+        all_node_templates = raw_configuration.get('node_templates', {})
+        for aws_type, node_templates in all_node_templates.items():
+            for node_template_name, config in node_templates.items():
+                if not config.get(self.VERSION_OPTION):
+                    relative_path = 'node_templates/%s/%s.json' % (
+                        aws_type,
+                        node_template_name,
+                    )
+                    self._add_path_relative_validation_error(
+                        relative_path,
+                        'missing_option',
+                        extra_context={
+                            'option_name': self.VERSION_OPTION,
+                        },
+                    )
+
     def _validate_configuration(self):
         self.validation_errors = {}
         self.raw_configuration = self._load_configuration_files(
@@ -292,6 +337,12 @@ class NeckbeardLoader(object):
         if len(self.validation_errors) > 0:
             # If there are errors loading/parsing the files, don't attempt
             # further validation
+            return
+
+        self._validate_neckbeard_conf_version(self.raw_configuration)
+        if len(self.validation_errors) > 0:
+            # If we can't determine the configuration version of the files, we
+            # can't rely on any other validation
             return
 
         self._validate_node_template_agreement(self.raw_configuration)

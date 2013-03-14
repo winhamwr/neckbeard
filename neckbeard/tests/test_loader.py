@@ -435,4 +435,74 @@ class TestValidation(unittest.TestCase):
 
     def test_neckbeard_conf_version_required(self):
         # All configs everywhere need a `neckbeard_conf_version`
-        assert False
+        loader = self._get_loader_for_fixture('minimal')
+        loader.validation_errors = {}
+
+        raw_configuration = {
+            'constants': {},
+            'secrets': {},
+            'secrets.tpl': {},
+            'environments': {
+                'foo': {},
+                'bar': {},
+            },
+            'node_templates': {
+                'ec2': {
+                    'foo': {},
+                    'bar': {},
+                },
+                'baz': {
+                    'bang': {},
+                },
+            },
+        }
+        loader._validate_neckbeard_conf_version(raw_configuration)
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments/foo.json',
+            'missing_option',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+        expected_error_count = 3 + 2 + 3  # Root + environments + templates
+        self.assertEqual(len(loader.validation_errors), expected_error_count)
+
+        # Now let's try the "everything is kosher" case
+        correct_configuration = {
+            'constants': {
+                'neckbeard_conf_version': '0.1',
+            },
+            'secrets': {
+                'neckbeard_conf_version': '0.1',
+            },
+            'secrets.tpl': {
+                'neckbeard_conf_version': '0.1',
+            },
+            'environments': {
+                'foo': {
+                    'neckbeard_conf_version': '0.1',
+                },
+                'bar': {
+                    'neckbeard_conf_version': '0.1',
+                },
+            },
+            'node_templates': {
+                'ec2': {
+                    'foo': {
+                        'neckbeard_conf_version': '0.1',
+                    },
+                    'bar': {
+                        'neckbeard_conf_version': '0.1',
+                    },
+                },
+                'baz': {
+                    'bang': {
+                        'neckbeard_conf_version': '0.1',
+                    },
+                },
+            },
+        }
+        loader.validation_errors = {}
+        loader._validate_neckbeard_conf_version(correct_configuration)
+        self.assertEqual(len(loader.validation_errors), 0)
