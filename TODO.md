@@ -1,10 +1,5 @@
 ## Parse and validate configuration
 
-* Neckbeard CLI invocation to hook in to NeckbeardLoader
-* Validate the secrets.json and secrets.tpl.json relationship
-* Validate required fields for node_templates (ec2, rds, elb)
-* Validate required fields environments
-* Validate that environment nodes using templates override required_overrides
 * Generate the environment.constants context
 * Generate the environment.secrets context
 * Mock out the node context with a magic backend for getting that info
@@ -22,6 +17,16 @@
 
 * Find a good interface
 * Write a local JSON text file version
+
+## Improve config validation and generation
+
+* Add a CLI for creating and configuring at least one Django hello world
+  template. Two web + Memcached nodes in 2 AZ's, RDS.
+* Before any command can run, do more in-depth validation:
+  * Validate the secrets.json and secrets.tpl.json relationship
+  * Validate required fields for node_templates (ec2, rds, elb)
+  * Validate required fields environments
+  * Validate that environment nodes using templates override required_overrides
 
 ## "Neckbeard Service"-ize the PolicyStat stuff
 
