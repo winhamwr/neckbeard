@@ -1,57 +1,48 @@
 Neckbeard- Django deployment for the rest of us
 ===============================================
 
-Deployment sucks for almost everyone, 
-it's just a matter of degrees of suck.
-People string together tutorials, 
-re-invent wheels, 
-bend tools to their will,
-write wiki docs 
-and generally waste time and effort 
-that could be making their actual product better. 
-Some teams have a few dedicated DevOps neckbeard types
-to ease the developer pain, 
-but even they are mostly re-inventing wheels.
+Neckbeard is your own personal operations team
+in charge of maintaining your own personal PaaS.
+It's the Heroku experience for developers
+(dead-simple deploys)
+combined with the flexibility of open source software
+on servers that you control.
+You get smart, fault-tolerant, repeatable, datacenter-aware, cloud-centric,
+one-command deploys, without needing to spend the next month stringing together
+tutorials.
 
-With Neckbeard, 
-you can deploy your High Availability, 
-multi-server,
-multi-tiered Django application to AWS 
-with one command 
-that just figures out
-all the BS for you:
+If you're Netflix, Google, Facebook, LinkedIn, Twitter, etc,
+then you have a team of folks who have already solved this problem for you.
+If you just want to throw a hobby app up on a free PaaS, use Heroku.
+If you have good reasons not to use a PaaS, then don't go re-invent the wheel.
+Use Neckbeard.
 
     $ neckbeard up
-
-It's the Heroku experience for developers 
-(dead-simple deploys) 
-combined with the flexibility of open source software 
-and the ability to control your own servers as your needs change. 
 
 Cloud-Native
 ------------
 
-Neckbeard is built from the ground up for cloud-based ephemeral servers 
-that you can rebuild on a whim with one command. 
-It knows about your backups 
-and knows how to spin up test/staging environments from those backups 
-(and then spin them down). 
-The process you go through for disaster recovery 
-becomes just another deploy 
-because you do it all the time. 
-You can be confident that 
-you can rebuild your entire infrastructure with 
-a source code checkout, 
-a network connection 
+Neckbeard is built from the ground up for cloud-based ephemeral servers
+that you can rebuild on a whim with one command.
+It knows about your backups
+and knows how to spin up test/staging environments from those backups
+(and then spin them down).
+The process you go through for disaster recovery
+becomes just another deploy
+because you do it all the time.
+You can be confident that
+you can rebuild your entire infrastructure with
+a source code checkout,
+a network connection
 and some authentication credentials.
 
 Repeatable
 ----------
 
-The "stack" created by Neckbeard is done entirely via ``Chef`` solo 
-and configuration files. 
-Not only does this make your servers consistent, 
-but it means you can use ``Vagrant`` 
+The "stack" created by Neckbeard is done entirely via ``Chef`` solo
+and configuration files.
+Not only does this make your servers consistent,
+but it means you can use ``Vagrant``
 for consistent local development machine setup.
 
 Getting Started
@@ -61,7 +52,7 @@ The easiest way to get started is to run::
 
     $ neckbeard init
 
-From the root of your project's source repo and follow the interactive prompts. 
+From the root of your project's source repo and follow the interactive prompts.
 It will help you create the appropriate config files, roughly following this
 process:
 
@@ -130,24 +121,24 @@ TODO: Heroku-style procfiles
    availability zones, but the development environment only needs one
    availability zone.
 
-3. Configure application settings in 
+3. Configure application settings in
 
 Neckbeard Architecture
 ----------------------
 
-Neckbeard consists of several components 
+Neckbeard consists of several components
 glued together at well-defined interfaces.
 
 Neckbeard Runtime Stack
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The Neckbeard runtime stack 
+The Neckbeard runtime stack
 is very similar to `Heroku's Cedar Stack`_ in goal.
 It aims to follow the `twelve-factor app`_ principles,
 providing for app portability, maintainability and scalability.
 The current stack is called Bacon.
 
-The stack consists of an OS 
+The stack consists of an OS
 (Ubuntu Server Linux 10.04),
 plus a collection of Chef cookbooks and roles
 for defining how services and process
@@ -195,7 +186,7 @@ spinning up any required resources,
 putting the data on those nodes,
 and then configuring those nodes to work together.
 
-This CLI interface and library are 
+This CLI interface and library are
 responsible for actually making state changes to your deployment.
 Boto is used to interact with AWS,
 Fabric runs commands against instances,
@@ -206,22 +197,22 @@ Neckbeard Configuration Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the high-level files
-you use to tell Neckbeard how to launch your app. 
+you use to tell Neckbeard how to launch your app.
 This consists of:
 
 1. ``~/.neckbeard/auth.yml``: Holds AWS authentication credentials.
 
-2. ``Procfile`` in your app root 
+2. ``Procfile`` in your app root
 defines the processes that need to exist
 (application servers, celery workers, etc.)
 
 3. ``neckbeard.yml`` Configures all other aspects of neckbeard
-including where your pip requirements files are, 
+including where your pip requirements files are,
 environment-specific settings,
 etc.
 
 Neckbeard CLI
 ~~~~~~~~~~~~~
 
-The Neckbeard command line interface 
+The Neckbeard command line interface
 is where the rubber meets the road.
