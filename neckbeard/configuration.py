@@ -1,4 +1,5 @@
 
+from copy import deepcopy
 
 class CircularSeedEnvironmentError(Exception):
     pass
@@ -29,14 +30,16 @@ class ConfigurationManager(object):
           `CloudResource` that should exist.
     """
     def __init__(self,
-                 constants, secrets, secrets_tpl, environments, node_templates,
-                 scaling_manager):
+            scaling_manager, environments,
+            constants=None, secrets=None, secrets_tpl=None,
+            node_templates=None):
         self.constants = constants
         self.secrets = secrets
         self.secrets_tpl = secrets_tpl
         self.environments = environments
         self.node_templates = node_templates
         self.scaling_manager = scaling_manager
+        self._expanded_configuration = {}
 
     def is_valid(self):
         pass
@@ -98,7 +101,9 @@ class ConfigurationManager(object):
 
         return seed_environment_name
 
-    def _get_node_context(self, environment_name, resource_type, resource_name):
+    def _get_node_context(
+        self, environment_name, resource_type, resource_name,
+        index_for_scaling_group):
         """
         Returns a dictionary with the following values for the given node.
 
@@ -117,17 +122,14 @@ class ConfigurationManager(object):
         context['seed_environment_name'] = self._get_seed_environment_name(
             environment_name,
         )
-        index = self.scaling_manager.get_index_for_resource(
-            environment_name,
-            resource_type,
-            resource_name,
-        )
-        context['index_for_scaling_group'] = index
+        context['index_for_scaling_group'] = index_for_scaling_group
 
         return context
 
     def _get_seed_node_context(
-        self, environment_name, resource_type, resource_name, index_for_scaling_group):
+        self, environment_name, resource_type, resource_name,
+        index_for_scaling_group):
+
         environment = self.environments[environment_name]
         resource_types = environment['aws_nodes'][resource_type]
         node = resource_types[resource_name]
@@ -152,8 +154,8 @@ class ConfigurationManager(object):
 
         return context
 
-    def get_config_context_for_resource(
-        self, environment, resource_type, name, index=0):
+    def _get_config_context_for_resource(
+        self, environment, resource_type, name, index_for_scaling_group=0):
         """
         For a particular index of a particular resource, get the template
         context used for generating the configuration. This includes:
@@ -174,10 +176,105 @@ class ConfigurationManager(object):
               * name
               * index_for_scaling_group
         """
-        return {}
+        context = {
+            'environment': {},
+            'seed_environment': {},
+        }
+        context['environment']['constants'] = self._get_environment_constants(
+            environment,
+        )
+        context['environment']['secrets'] = self._get_environment_secrets(
+            environment,
+        )
+        context['seed_environment']['constants'] = self._get_seed_environment_constants(
+            environment,
+        )
+        context['seed_environment']['secrets'] = self._get_seed_environment_secrets(
+            environment,
+        )
 
-    def expand_configurations(self):
-        pass
+        context['node'] = self._get_node_context(
+            environment,
+            resource_type,
+            name,
+            index_for_scaling_group,
+        )
+        context['seed_node'] = self._get_seed_node_context(
+            environment,
+            resource_type,
+            name,
+            index_for_scaling_group,
+        )
+        return context
+
+    def _apply_resource_template(self,
+            resource_type, resource_configuration):
+
+        def deep_merge(base, overrides):
+            if not isinstance(overrides, dict):
+                return overrides
+            result = deepcopy(base)
+            for key, value in overrides.iteritems():
+                if key in result and isinstance(result[key], dict):
+                    result[key] = deep_merge(result[key], value)
+                else:
+                    result[key] = deepcopy(value)
+            return result
+
+        resource_template_name = resource_configuration.get(
+            'resource_template_name',
+        )
+        if not resource_template_name:
+            return resource_configuration
+
+        # TODO: Do validation here when the template doesn't exist
+        resource_templates = self.node_templates[resource_type]
+        resource_template = resource_templates[resource_template_name]
+
+        return deep_merge(
+            resource_template['defaults'],
+            resource_configuration,
+        )
+
+    def _evaluate_configuration(self, config_context, resource_configuration):
+        return resource_configuration
+
+    def expand_configurations(self, environment_name):
+        if environment_name in self._expanded_configuration:
+            return self._expanded_configuration[environment_name]
+
+        environment = self.environments[environment_name]
+        expanded_conf = {}
+
+        for resource_type, resources in environment['aws_nodes'].items():
+            expanded_conf[resource_type] = {}
+            for resource_name, configuration in resources.items():
+                expanded_conf[resource_type][resource_name] = {}
+                resource_conf = expanded_conf[resource_type][resource_name]
+
+                # Apply the `resource_template`, if used
+                expanded_configuration = self._apply_resource_template(
+                    resource_type,
+                    configuration,
+                )
+                for index in self.scaling_manager.get_indexes_for_resource(
+                    environment_name,
+                    resource_type,
+                    resource_name,
+                    expanded_configuration,
+                ):
+                    config_context = self._get_config_context_for_resource(
+                        environment_name,
+                        resource_type,
+                        resource_name,
+                        index_for_scaling_group=index,
+                    )
+                    unique_id, evaluated_resource_conf = self._evaluate_configuration(
+                        config_context,
+                        expanded_configuration,
+                    )
+
+                    resource_conf[unique_id] = evaluated_resource_conf
 
     def dump_node_configuration(self, output_directory):
         pass

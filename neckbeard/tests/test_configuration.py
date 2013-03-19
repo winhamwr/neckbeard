@@ -8,13 +8,19 @@ from neckbeard.configuration import (
     CircularSeedEnvironmentError,
 )
 
-class MockScalingManager(object):
-    def __init__(self, default_count=1):
-        self.default_count = default_count
+class MaxScalingManager(object):
+    """
+    A scaling manager that always assumes the maximum allowed number of nodes
+    is the current scale.
+    """
+    def get_indexes_for_resource(self,
+            environment, resource_type, resource_name, resource_configuration):
 
-    def get_index_for_resource(
-        self, environment, resource_type, resource_name):
-        return self.default_count
+        scaling = resource_configuration.get('scaling')
+        if not scaling:
+            return 1
+
+        return scaling.get('maximum', 1)
 
 
 class TestConfigContext(unittest.TestCase):
@@ -36,7 +42,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         test1_constants = configuration._get_environment_constants('test1')
@@ -65,7 +71,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         secrets = configuration._get_environment_secrets('test1')
@@ -127,7 +133,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         # Check constants
@@ -169,7 +175,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         # Check constants
@@ -220,7 +226,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         self.assertRaises(
@@ -283,10 +289,10 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
-        node_context = configuration._get_node_context('test1', 'ec2', 'web')
+        node_context = configuration._get_node_context('test1', 'ec2', 'web', 1)
         expected = {
             'environment_name': 'test1',
             'seed_environment_name': 'test2',
@@ -317,10 +323,10 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(default_count=7),
+            scaling_manager=MaxScalingManager(),
         )
 
-        node_context = configuration._get_node_context('test1', 'ec2', 'web')
+        node_context = configuration._get_node_context('test1', 'ec2', 'web', 7)
         expected = {
             'environment_name': 'test1',
             'seed_environment_name': None,
@@ -385,7 +391,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(default_count=3),
+            scaling_manager=MaxScalingManager(),
         )
 
         # Explicit seed values
@@ -459,7 +465,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(default_count=3),
+            scaling_manager=MaxScalingManager(),
         )
 
         node_context = configuration._get_seed_node_context(
@@ -525,7 +531,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
         self.assertRaises(
@@ -582,14 +588,14 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl=secrets_tpl,
             environments=environments,
             node_templates={},
-            scaling_manager=MockScalingManager(),
+            scaling_manager=MaxScalingManager(),
         )
 
-        context = configuration.get_config_context_for_resource(
+        context = configuration._get_config_context_for_resource(
             environment='test1',
             resource_type='ec2',
             name='web',
-            index=0,
+            index_for_scaling_group=0,
         )
         expected_variables = [
             'environment',
@@ -606,19 +612,196 @@ class TestConfigContext(unittest.TestCase):
         )
 
         self.assertEqual(
-            context['node'],
-            {'name': 'web', 'index_for_scaling_group': 0},
+            context['node']['name'],
+            'web',
+        )
+        self.assertEqual(
+            context['node']['index_for_scaling_group'],
+            0,
         )
 
         # No seed stuff configured
-        self.assertEqual(context['seed_environment'], {})
+        self.assertEqual(context['seed_environment']['secrets'], {})
+        self.assertEqual(context['seed_environment']['constants'], {})
         self.assertEqual(context['seed_node'], {})
 
 
-class TestNodeTemplateExpansion(unittest.TestCase):
+class TestResourceTemplateApplication(unittest.TestCase):
 
     def test_no_template(self):
         # Nodes without a template still work
-        raise NotImplementedError()
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "unique_id": "web0-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+        node_templates = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'ec2': {},
+        }
 
+        configuration = ConfigurationManager(
+            environments=environments,
+            node_templates=node_templates,
+            scaling_manager=MaxScalingManager(),
+        )
+        expanded_conf = configuration._apply_resource_template(
+            'ec2',
+            environments['test1']['aws_nodes']['ec2']['web0'],
+        )
+        self.assertEqual(expanded_conf['name'], 'web0')
+
+    def test_variables_added(self):
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "resource_template_name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+        node_templates = {
+            'ec2': {
+                "web": {
+                    NeckbeardLoader.VERSION_OPTION: '0.1',
+                    "resource_type": "ec2",
+                    "resource_template_name": "web",
+                    "defaults": {
+                        "foo1": "v_foo1",
+                    },
+                    "required_overrides": {},
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            environments=environments,
+            node_templates=node_templates,
+            scaling_manager=MaxScalingManager(),
+        )
+        expanded_conf = configuration._apply_resource_template(
+            'ec2',
+            environments['test1']['aws_nodes']['ec2']['web0'],
+        )
+        self.assertEqual(expanded_conf.get('foo1'), 'v_foo1')
+
+    def test_resource_preference(self):
+        # Things in the config take preference over things in the template
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "resource_template_name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "foo": "original",
+                        },
+                    },
+                },
+            },
+        }
+        node_templates = {
+            'ec2': {
+                "web": {
+                    NeckbeardLoader.VERSION_OPTION: '0.1',
+                    "resource_type": "ec2",
+                    "resource_template_name": "web",
+                    "defaults": {
+                        "foo": "template",
+                    },
+                    "required_overrides": {},
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            environments=environments,
+            node_templates=node_templates,
+            scaling_manager=MaxScalingManager(),
+        )
+        expanded_conf = configuration._apply_resource_template(
+            'ec2',
+            environments['test1']['aws_nodes']['ec2']['web0'],
+        )
+        self.assertEqual(expanded_conf['foo'], 'original')
+
+    def test_deep_merge(self):
+        # Dictionaries are deep merged
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "resource_template_name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "service_addons": {
+                                "redis": {
+                                    "foo": "original",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        node_templates = {
+            'ec2': {
+                "web": {
+                    NeckbeardLoader.VERSION_OPTION: '0.1',
+                    "resource_type": "ec2",
+                    "resource_template_name": "web",
+                    "defaults": {
+                        "service_addons": {
+                            "redis": {
+                                "foo": "overridden",
+                                "from_template": "v_from_template",
+                            },
+                            "celery": {
+                                "celerybeat": True,
+                            },
+                        },
+                    },
+                    "required_overrides": {},
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            environments=environments,
+            node_templates=node_templates,
+                            "resource_template_name": "web",
+            scaling_manager=MaxScalingManager(),
+        )
+        expanded_conf = configuration._apply_resource_template(
+            'ec2',
+            environments['test1']['aws_nodes']['ec2']['web0'],
+        )
+        service_addons = expanded_conf.get("service_addons", {})
+        celery = service_addons.get('celery', {})
+        self.assertEqual(celery.get('celerybeat'), True)
+        redis = service_addons.get('redis', {})
+        self.assertEqual(redis.get('foo'), "original")
+        self.assertEqual(redis.get('from_template'), "v_from_template")
 
