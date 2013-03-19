@@ -1,3 +1,7 @@
+import errno
+import json
+import os
+import shutil
 
 from collections import Mapping
 from copy import deepcopy
@@ -5,6 +9,18 @@ from jinja2 import Environment
 
 class CircularSeedEnvironmentError(Exception):
     pass
+
+
+def mkdir_p(path):
+    """
+    Borrowed from: http://stackoverflow.com/a/600612/386925
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
 
 
 class ConfigurationManager(object):
@@ -35,12 +51,14 @@ class ConfigurationManager(object):
             scaling_manager, environments,
             constants=None, secrets=None, secrets_tpl=None,
             node_templates=None):
-        self.constants = constants
-        self.secrets = secrets
-        self.secrets_tpl = secrets_tpl
-        self.environments = environments
-        self.node_templates = node_templates
         self.scaling_manager = scaling_manager
+        self.environments = environments
+
+        self.constants = constants or {}
+        self.secrets = secrets or {}
+        self.secrets_tpl = secrets_tpl or {}
+        self.node_templates = node_templates or {}
+
         self._expanded_configuration = {}
 
     def is_valid(self):
@@ -239,12 +257,15 @@ class ConfigurationManager(object):
         )
 
     def _evaluate_configuration(self, config_context, resource_configuration):
-
         def evaluate_templates(config, context):
             if isinstance(config, basestring):
                 env = Environment()
                 template = env.from_string(config)
                 return template.render(context)
+            constant_types = [bool, int, float]
+            for constant_type in constant_types:
+                if isinstance(config, constant_type):
+                    return config
 
             result = deepcopy(config)
             if isinstance(config, Mapping):
@@ -256,7 +277,11 @@ class ConfigurationManager(object):
 
             return result
 
-        return evaluate_templates(resource_configuration, config_context)
+        evaluated_template = evaluate_templates(
+            resource_configuration,
+            config_context,
+        )
+        return (evaluated_template['unique_id'], evaluated_template)
 
     def expand_configurations(self, environment_name):
         if environment_name in self._expanded_configuration:
@@ -268,8 +293,7 @@ class ConfigurationManager(object):
         for resource_type, resources in environment['aws_nodes'].items():
             expanded_conf[resource_type] = {}
             for resource_name, configuration in resources.items():
-                expanded_conf[resource_type][resource_name] = {}
-                resource_conf = expanded_conf[resource_type][resource_name]
+                resource_conf = expanded_conf[resource_type]
 
                 # Apply the `resource_template`, if used
                 expanded_configuration = self._apply_resource_template(
@@ -293,10 +317,30 @@ class ConfigurationManager(object):
                         expanded_configuration,
                     )
 
+                    # TODO: Detect duplicate unique ids
                     resource_conf[unique_id] = evaluated_resource_conf
 
-    def dump_node_configuration(self, output_directory):
-        pass
+        return expanded_conf
+
+    def dump_environment_configuration(self, environment_name, output_directory):
+        expanded_configuration = self.expand_configurations(environment_name)
+
+        if os.path.exists(output_directory):
+            shutil.rmtree(output_directory)
+
+        mkdir_p(output_directory)
+
+        for resource_type, resources in expanded_configuration.items():
+            resource_type_dir = os.path.join(output_directory, resource_type)
+            mkdir_p(resource_type_dir)
+            for unique_id, resource_config in resources.items():
+                resource_file = os.path.join(
+                    resource_type_dir,
+                    '%s.json' % unique_id,
+                )
+
+                with open(resource_file, 'w') as fp:
+                    json.dump(resource_config, fp)
 
 
 class CloudResourceConfiguration(object):

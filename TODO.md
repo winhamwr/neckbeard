@@ -1,11 +1,3 @@
-## Parse and validate configuration
-
-* Generate the environment.constants context
-* Generate the environment.secrets context
-* Mock out the node context with a magic backend for getting that info
-* Generate the seed_environment context
-* Output a NeckbeardConfiguration object and spit out JSON for nodes
-
 ## Use the Neckbeard config to run existing PolicyStat stuff
 
 * Create a CLI that wraps Fabric
