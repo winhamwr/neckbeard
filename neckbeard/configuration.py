@@ -29,12 +29,14 @@ class ConfigurationManager(object):
           `CloudResource` that should exist.
     """
     def __init__(self,
-                 constants, secrets, secrets_tpl, environments, node_templates):
+                 constants, secrets, secrets_tpl, environments, node_templates,
+                 scaling_manager):
         self.constants = constants
         self.secrets = secrets
         self.secrets_tpl = secrets_tpl
         self.environments = environments
         self.node_templates = node_templates
+        self.scaling_manager = scaling_manager
 
     def is_valid(self):
         pass
@@ -95,6 +97,59 @@ class ConfigurationManager(object):
                 raise CircularSeedEnvironmentError()
 
         return seed_environment_name
+
+    def _get_node_context(self, environment_name, resource_type, resource_name):
+        """
+        Returns a dictionary with the following values for the given node.
+
+          * environment_name
+          * seed_environment_name
+          * resource_type
+          * name
+          * index_for_scaling_group
+        """
+        context = {
+            'environment_name': environment_name,
+            'resource_type': resource_type,
+            'name': resource_name,
+        }
+
+        context['seed_environment_name'] = self._get_seed_environment_name(
+            environment_name,
+        )
+        index = self.scaling_manager.get_index_for_resource(
+            environment_name,
+            resource_type,
+            resource_name,
+        )
+        context['index_for_scaling_group'] = index
+
+        return context
+
+    def _get_seed_node_context(self, node_context):
+        environment = self.environments[node_context['environment_name']]
+        resource_types = environment['aws_nodes'][node_context['resource_type']]
+        node = resource_types[node_context['name']]
+
+        seed_environment_name = self._get_seed_environment_name(
+            node_context['environment_name'],
+        )
+
+        seed = node.get('seed', None)
+        if seed is None:
+            return {}
+
+        context = {}
+        context['resource_type'] = node_context['resource_type']
+        context['name'] = seed.get('name', node_context['name'])
+        context['index_for_scaling_group'] =  seed.get(
+            'index_for_scaling_group',
+            node_context['index_for_scaling_group'],
+        )
+        context['environment_name'] = seed_environment_name
+        context['seed_environment_name'] = None
+
+        return context
 
     def get_config_context_for_resource(
         self, environment, resource_type, name, index=0):

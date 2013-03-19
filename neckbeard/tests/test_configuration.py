@@ -8,6 +8,14 @@ from neckbeard.configuration import (
     CircularSeedEnvironmentError,
 )
 
+class MockScalingManager(object):
+    def __init__(self, default_count=1):
+        self.default_count = default_count
+
+    def get_index_for_resource(
+        self, environment, resource_type, resource_name):
+        return self.default_count
+
 
 class TestConfigContext(unittest.TestCase):
     def test_environment_constants(self):
@@ -28,6 +36,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         test1_constants = configuration._get_environment_constants('test1')
@@ -56,6 +65,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         secrets = configuration._get_environment_secrets('test1')
@@ -117,6 +127,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         # Check constants
@@ -158,6 +169,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         # Check constants
@@ -208,6 +220,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         self.assertRaises(
@@ -233,13 +246,320 @@ class TestConfigContext(unittest.TestCase):
         )
 
     def test_node(self):
-        raise NotImplementedError()
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'seed_environment_name': 'test2',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                                "index_for_scaling_group": 0,
+                            },
+                        },
+                    },
+                },
+            },
+            'test2': {
+                'name': 'test2',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            constants={},
+            secrets={},
+            secrets_tpl={},
+            environments=environments,
+            node_templates={},
+            scaling_manager=MockScalingManager(),
+        )
+
+        node_context = configuration._get_node_context('test1', 'ec2', 'web')
+        expected = {
+            'environment_name': 'test1',
+            'seed_environment_name': 'test2',
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 1,
+        }
+
+    def test_node_not_zero(self):
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            constants={},
+            secrets={},
+            secrets_tpl={},
+            environments=environments,
+            node_templates={},
+            scaling_manager=MockScalingManager(default_count=7),
+        )
+
+        node_context = configuration._get_node_context('test1', 'ec2', 'web')
+        expected = {
+            'environment_name': 'test1',
+            'seed_environment_name': None,
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 7,
+        }
+        self.assertEqual(len(node_context), len(expected))
+        for key, value in expected.items():
+            self.assertEqual(node_context.get(key), value)
 
     def test_seed_node(self):
-        raise NotImplementedError()
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'seed_environment_name': 'test3',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                                "index_for_scaling_group": 3,
+                            },
+                        },
+                    },
+                },
+            },
+            'test2': {
+                'name': 'test2',
+                'seed_environment_name': 'test3',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                            },
+                        },
+                    },
+                },
+            },
+            'test3': {
+                'name': 'test3',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            constants={},
+            secrets={},
+            secrets_tpl={},
+            environments=environments,
+            node_templates={},
+            scaling_manager=MockScalingManager(default_count=3),
+        )
+
+        # Explicit seed values
+        node_context = {
+            'environment_name': 'test1',
+            'seed_environment_name': 'test2',
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 3,
+        }
+        node_context = configuration._get_seed_node_context(node_context)
+        expected = {
+            'environment_name': 'test3',
+            'seed_environment_name': None,
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 3,
+        }
+        self.assertEqual(len(node_context), len(expected))
+        for key, value in expected.items():
+            self.assertEqual(node_context.get(key), value)
+
+        # Implicit seed values
+        node_context = {
+            'environment_name': 'test2',
+            'seed_environment_name': 'test3',
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 3,
+        }
+        node_context = configuration._get_seed_node_context(node_context)
+        expected = {
+            'environment_name': 'test3',
+            'seed_environment_name': None,
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 3,
+        }
+        self.assertEqual(len(node_context), len(expected))
+        for key, value in expected.items():
+            self.assertEqual(node_context.get(key), value)
+
+    def test_no_seed_node(self):
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'seed_environment_name': 'test2',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {},
+                        },
+                    },
+                },
+            },
+            'test2': {
+                'name': 'test2',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                        },
+                    },
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            constants={},
+            secrets={},
+            secrets_tpl={},
+            environments=environments,
+            node_templates={},
+            scaling_manager=MockScalingManager(default_count=3),
+        )
+
+        node_context = {
+            'environment_name': 'test1',
+            'seed_environment_name': 'test2',
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 0,
+        }
+        node_context = configuration._get_seed_node_context(node_context)
+        self.assertEqual(len(node_context), 0)
 
     def test_circular_seed_node(self):
-        raise NotImplementedError()
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'seed_environment_name': 'test2',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                            },
+                        },
+                    },
+                },
+            },
+            'test2': {
+                'name': 'test2',
+                'seed_environment_name': 'test3',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                            },
+                        },
+                    },
+                },
+            },
+            'test3': {
+                'name': 'test3',
+                'aws_nodes': {
+                    'ec2': {
+                        'web': {
+                            "name": "web",
+                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "seed": {
+                                "name": "web",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            constants={},
+            secrets={},
+            secrets_tpl={},
+            environments=environments,
+            node_templates={},
+            scaling_manager=MockScalingManager(),
+        )
+
+        node_context = {
+            'environment_name': 'test1',
+            'seed_environment_name': 'test2',
+            'resource_type': 'ec2',
+            'name': 'web',
+            'index_for_scaling_group': 0,
+        }
+        self.assertRaises(
+            CircularSeedEnvironmentError,
+            configuration._get_seed_node_context,
+            node_context,
+        )
+        node_context['environment_name'] = 'test2'
+        node_context['seed_environment_name'] = 'test3'
+        self.assertRaises(
+            CircularSeedEnvironmentError,
+            configuration._get_seed_node_context,
+            node_context,
+        )
+        node_context['environment_name'] = 'test3'
+        node_context['seed_environment_name'] = None
+        self.assertRaises(
+            CircularSeedEnvironmentError,
+            configuration._get_seed_node_context,
+            node_context,
+        )
 
     def test_full_config_context(self):
         constants = {
@@ -286,6 +606,7 @@ class TestConfigContext(unittest.TestCase):
             secrets_tpl=secrets_tpl,
             environments=environments,
             node_templates={},
+            scaling_manager=MockScalingManager(),
         )
 
         context = configuration.get_config_context_for_resource(
