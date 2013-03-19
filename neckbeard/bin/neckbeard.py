@@ -60,8 +60,7 @@ def main():
     if args.command == 'check':
         print "Configuration checks out A-ok!"
         output_dir = os.path.join(
-            configuration_directory, '.expanded_config'),
-        )
+            configuration_directory, '.expanded_config')
         print "You can see the deets on your nodes in: %s" % output_dir
         configuration.dump_node_configurations(output_dir)
         exit(0)
