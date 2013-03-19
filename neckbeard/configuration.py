@@ -1,5 +1,9 @@
 
 
+class CircularSeedEnvironmentError(Exception):
+    pass
+
+
 class ConfigurationManager(object):
     """
     ConfigurationManager accepts the already-parsed JSON configuration
@@ -38,13 +42,83 @@ class ConfigurationManager(object):
     def print_validation_errors(self):
         pass
 
-    def _get_constants(self, environment):
+    def _get_environment_constants(self, environment_name):
         environments = self.constants.get('environments', {})
-        return environments.get(environment, {})
+        return environments.get(environment_name, {})
 
-    def _get_secrets(self, environment):
+    def _get_environment_secrets(self, environment_name):
         environments = self.secrets.get('environments', {})
-        return environments.get(environment, {})
+        return environments.get(environment_name, {})
+
+    def _get_seed_environment_constants(self, environment_name):
+        seed_environment_name = self._get_seed_environment_name(
+            environment_name,
+        )
+
+        return self._get_environment_constants(seed_environment_name)
+
+    def _get_seed_environment_secrets(self, environment_name):
+        seed_environment_name = self._get_seed_environment_name(
+            environment_name,
+        )
+
+        return self._get_environment_secrets(seed_environment_name)
+
+    def _get_seed_environment_name(
+        self, environment_name, check_circular_reference=True):
+        """
+        Get the `seed_environment` name for the given environment.
+        """
+        environment = self.environments[environment_name]
+        seed_environment_name = environment.get(
+            'seed_environment_name',
+            None,
+        )
+        if seed_environment_name is None:
+            return None
+        # Now let's make sure that this `seed_environment` actually exists
+        if seed_environment_name not in self.environments:
+            # TODO: This should actually be caught by requiring validation
+            # before doing any of this stuff and this should be a type of
+            # validation error.
+            raise Exception(
+                "seed_environment %s does not exist" % seed_environment)
+        # TODO: This should actually be caught by requiring validation
+        # before doing any of this stuff and this should be a type of
+        # validation error.
+        if check_circular_reference:
+            seeds_seed = self._get_seed_environment_name(
+                seed_environment_name,
+                check_circular_reference=False,
+            )
+            if seeds_seed is not None:
+                raise CircularSeedEnvironmentError()
+
+        return seed_environment_name
+
+    def get_config_context_for_resource(
+        self, environment, resource_type, name, index=0):
+        """
+        For a particular index of a particular resource, get the template
+        context used for generating the configuration. This includes:
+            * environment.constants
+            * environment.secrets
+            * seed_environment.constants
+            * seed_environment.secrets
+            * node
+              * environment_name
+              * seed_environment_name
+              * resource_type
+              * name
+              * index_for_scaling_group
+            * seed_node
+              * environment_name
+              * seed_environment_name
+              * resource_type
+              * name
+              * index_for_scaling_group
+        """
+        return {}
 
     def expand_configurations(self):
         pass
