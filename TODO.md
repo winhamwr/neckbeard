@@ -42,6 +42,10 @@
 ## Secrets
 
 * NeckbeardLoader grows a SecretsManager to handle PGP both directions
+* What about situations where developers should only have access to certain
+  environments? Maybe use a secrets folder with a separate pgp file per
+  environment and then a file that maps developer names to PGP public keys
+  lists which developers should have access to which environment.
 
 ## Get a hello world example working with a tutorial
 
