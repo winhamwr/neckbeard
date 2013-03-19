@@ -13,6 +13,13 @@
 * Figure out how to register provisioners
 * Update the existing PolicyStat stuff to not expect `env.FOO` for all the configs
 
+## Make getting started easy
+
+* Add a CLI for creating and configuring at least one Django hello world
+  template. Two web + Memcached nodes in 2 AZ's, RDS.
+* Getting started documentation
+* Document config file format
+
 ## Abstract out the Coordinator/SimpleDB backend
 
 * Find a good interface
@@ -20,8 +27,6 @@
 
 ## Improve config validation and generation
 
-* Add a CLI for creating and configuring at least one Django hello world
-  template. Two web + Memcached nodes in 2 AZ's, RDS.
 * Before any command can run, do more in-depth validation:
   * Validate the secrets.json and secrets.tpl.json relationship
   * Validate required fields for node_templates (ec2, rds, elb)
