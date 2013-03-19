@@ -389,14 +389,12 @@ class TestConfigContext(unittest.TestCase):
         )
 
         # Explicit seed values
-        node_context = {
-            'environment_name': 'test1',
-            'seed_environment_name': 'test2',
-            'resource_type': 'ec2',
-            'name': 'web',
-            'index_for_scaling_group': 3,
-        }
-        node_context = configuration._get_seed_node_context(node_context)
+        node_context = configuration._get_seed_node_context(
+            'test1',
+            'ec2',
+            'web',
+            3,
+        )
         expected = {
             'environment_name': 'test3',
             'seed_environment_name': None,
@@ -409,20 +407,18 @@ class TestConfigContext(unittest.TestCase):
             self.assertEqual(node_context.get(key), value)
 
         # Implicit seed values
-        node_context = {
-            'environment_name': 'test2',
-            'seed_environment_name': 'test3',
-            'resource_type': 'ec2',
-            'name': 'web',
-            'index_for_scaling_group': 3,
-        }
-        node_context = configuration._get_seed_node_context(node_context)
+        node_context = configuration._get_seed_node_context(
+            'test2',
+            'ec2',
+            'web',
+            0,
+        )
         expected = {
             'environment_name': 'test3',
             'seed_environment_name': None,
             'resource_type': 'ec2',
             'name': 'web',
-            'index_for_scaling_group': 3,
+            'index_for_scaling_group': 0,
         }
         self.assertEqual(len(node_context), len(expected))
         for key, value in expected.items():
@@ -466,14 +462,12 @@ class TestConfigContext(unittest.TestCase):
             scaling_manager=MockScalingManager(default_count=3),
         )
 
-        node_context = {
-            'environment_name': 'test1',
-            'seed_environment_name': 'test2',
-            'resource_type': 'ec2',
-            'name': 'web',
-            'index_for_scaling_group': 0,
-        }
-        node_context = configuration._get_seed_node_context(node_context)
+        node_context = configuration._get_seed_node_context(
+            'test1',
+            'ec2',
+            'web',
+            0,
+        )
         self.assertEqual(len(node_context), 0)
 
     def test_circular_seed_node(self):
@@ -534,31 +528,13 @@ class TestConfigContext(unittest.TestCase):
             scaling_manager=MockScalingManager(),
         )
 
-        node_context = {
-            'environment_name': 'test1',
-            'seed_environment_name': 'test2',
-            'resource_type': 'ec2',
-            'name': 'web',
-            'index_for_scaling_group': 0,
-        }
         self.assertRaises(
             CircularSeedEnvironmentError,
             configuration._get_seed_node_context,
-            node_context,
-        )
-        node_context['environment_name'] = 'test2'
-        node_context['seed_environment_name'] = 'test3'
-        self.assertRaises(
-            CircularSeedEnvironmentError,
-            configuration._get_seed_node_context,
-            node_context,
-        )
-        node_context['environment_name'] = 'test3'
-        node_context['seed_environment_name'] = None
-        self.assertRaises(
-            CircularSeedEnvironmentError,
-            configuration._get_seed_node_context,
-            node_context,
+            'test1',
+            'ec2',
+            'web',
+            0,
         )
 
     def test_full_config_context(self):

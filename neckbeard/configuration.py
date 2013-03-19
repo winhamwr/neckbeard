@@ -126,25 +126,26 @@ class ConfigurationManager(object):
 
         return context
 
-    def _get_seed_node_context(self, node_context):
-        environment = self.environments[node_context['environment_name']]
-        resource_types = environment['aws_nodes'][node_context['resource_type']]
-        node = resource_types[node_context['name']]
+    def _get_seed_node_context(
+        self, environment_name, resource_type, resource_name, index_for_scaling_group):
+        environment = self.environments[environment_name]
+        resource_types = environment['aws_nodes'][resource_type]
+        node = resource_types[resource_name]
 
         seed_environment_name = self._get_seed_environment_name(
-            node_context['environment_name'],
+            environment_name,
         )
 
         seed = node.get('seed', None)
-        if seed is None:
+        if not seed:
             return {}
 
         context = {}
-        context['resource_type'] = node_context['resource_type']
-        context['name'] = seed.get('name', node_context['name'])
+        context['resource_type'] = resource_type
+        context['name'] = seed.get('name', resource_name)
         context['index_for_scaling_group'] =  seed.get(
             'index_for_scaling_group',
-            node_context['index_for_scaling_group'],
+            index_for_scaling_group,
         )
         context['environment_name'] = seed_environment_name
         context['seed_environment_name'] = None
