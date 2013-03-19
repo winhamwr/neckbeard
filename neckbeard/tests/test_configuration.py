@@ -10,23 +10,7 @@ from neckbeard.configuration import (
     ConfigurationManager,
     CircularSeedEnvironmentError,
 )
-
-
-class MaxScalingManager(object):
-    """
-    A scaling manager that always assumes the maximum allowed number of nodes
-    is the current scale.
-    """
-    def get_indexes_for_resource(
-        self, environment, resource_type, resource_name,
-        resource_configuration,
-    ):
-
-        scaling = resource_configuration.get('scaling')
-        if not scaling:
-            return range(1)
-
-        return range(scaling.get('maximum', 1))
+from neckbeard.scaling import MaxScalingBackend
 
 
 class TestConfigContext(unittest2.TestCase):
@@ -48,7 +32,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         test1_constants = configuration._get_environment_constants('test1')
@@ -77,7 +61,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments={},
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         secrets = configuration._get_environment_secrets('test1')
@@ -139,7 +123,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         # Check constants
@@ -181,7 +165,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         # Check constants
@@ -232,7 +216,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         self.assertRaises(
@@ -295,7 +279,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         node_context = configuration._get_node_context(
@@ -332,7 +316,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         node_context = configuration._get_node_context(
@@ -402,7 +386,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         # Explicit seed values
@@ -476,7 +460,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         node_context = configuration._get_seed_node_context(
@@ -542,7 +526,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         self.assertRaises(
@@ -599,7 +583,7 @@ class TestConfigContext(unittest2.TestCase):
             secrets_tpl=secrets_tpl,
             environments=environments,
             node_templates={},
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
 
         context = configuration._get_config_context_for_resource(
@@ -663,7 +647,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
         configuration = ConfigurationManager(
             environments=environments,
             node_templates=node_templates,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         expanded_conf = configuration._apply_resource_template(
             'ec2',
@@ -704,7 +688,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
         configuration = ConfigurationManager(
             environments=environments,
             node_templates=node_templates,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         expanded_conf = configuration._apply_resource_template(
             'ec2',
@@ -747,7 +731,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
         configuration = ConfigurationManager(
             environments=environments,
             node_templates=node_templates,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         expanded_conf = configuration._apply_resource_template(
             'ec2',
@@ -802,7 +786,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
         configuration = ConfigurationManager(
             environments=environments,
             node_templates=node_templates,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         expanded_conf = configuration._apply_resource_template(
             'ec2',
@@ -924,7 +908,7 @@ class TestConfigExpansion(unittest2.TestCase):
             secrets_tpl={},
             environments=environments,
             node_templates=node_templates,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         expanded_configuration = configuration.expand_configurations('test1')
         expected = {
@@ -1060,7 +1044,7 @@ class TestFileDumping(unittest2.TestCase):
         }
         configuration = ConfigurationManager(
             environments=environments,
-            scaling_manager=MaxScalingManager(),
+            scaling_backend=MaxScalingBackend(),
         )
         output_dir = path.join(self.tmp_dir, 'test1')
         configuration.dump_environment_configuration(

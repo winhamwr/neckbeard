@@ -7,6 +7,8 @@ from collections import Mapping
 from copy import deepcopy
 from jinja2 import Environment
 
+from neckbeard.scaling import MinScalingBackend  # TODO: Don't hardcode this
+
 
 class CircularSeedEnvironmentError(Exception):
     pass
@@ -49,14 +51,14 @@ class ConfigurationManager(object):
     """
     def __init__(
         self,
-        scaling_manager,
+        scaling_backend,
         environments,
         constants=None,
         secrets=None,
         secrets_tpl=None,
         node_templates=None,
     ):
-        self.scaling_manager = scaling_manager
+        self.scaling_backend = scaling_backend
         self.environments = environments
 
         self.constants = constants or {}
@@ -66,8 +68,27 @@ class ConfigurationManager(object):
 
         self._expanded_configuration = {}
 
+    @classmethod
+    def from_loader(cls, loader):
+        """
+        Create a new `ConfigurationManager` from an existing
+        ``NeckbeardLoader``.
+        """
+        raw_config = loader.raw_configuration
+        configuration = cls(
+            environments=raw_config['environments'],
+            scaling_backend=MinScalingBackend(),
+            constants=raw_config.get('constants', {}),
+            secrets=raw_config.get('secrets', {}),
+            secrets_tpl=raw_config.get('secrets_tpl', {}),
+            node_templates=raw_config.get('node_templates', {}),
+        )
+
+        return configuration
+
     def is_valid(self):
-        pass
+        # TODO: Actually do some like, you know, validation
+        return True
 
     def print_validation_errors(self):
         pass
@@ -311,7 +332,7 @@ class ConfigurationManager(object):
                     resource_type,
                     configuration,
                 )
-                for index in self.scaling_manager.get_indexes_for_resource(
+                for index in self.scaling_backend.get_indexes_for_resource(
                     environment_name,
                     resource_type,
                     resource_name,
