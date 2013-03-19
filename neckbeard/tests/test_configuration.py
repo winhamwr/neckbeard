@@ -791,7 +791,6 @@ class TestResourceTemplateApplication(unittest.TestCase):
         configuration = ConfigurationManager(
             environments=environments,
             node_templates=node_templates,
-                            "resource_template_name": "web",
             scaling_manager=MaxScalingManager(),
         )
         expanded_conf = configuration._apply_resource_template(

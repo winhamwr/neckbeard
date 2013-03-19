@@ -1,5 +1,7 @@
 
+from collections import Mapping
 from copy import deepcopy
+from jinja2 import Environment
 
 class CircularSeedEnvironmentError(Exception):
     pass
@@ -211,11 +213,11 @@ class ConfigurationManager(object):
             resource_type, resource_configuration):
 
         def deep_merge(base, overrides):
-            if not isinstance(overrides, dict):
+            if not isinstance(overrides, Mapping):
                 return overrides
             result = deepcopy(base)
             for key, value in overrides.iteritems():
-                if key in result and isinstance(result[key], dict):
+                if key in result and isinstance(result[key], Mapping):
                     result[key] = deep_merge(result[key], value)
                 else:
                     result[key] = deepcopy(value)
@@ -237,7 +239,24 @@ class ConfigurationManager(object):
         )
 
     def _evaluate_configuration(self, config_context, resource_configuration):
-        return resource_configuration
+
+        def evaluate_templates(config, context):
+            if isinstance(config, basestring):
+                env = Environment()
+                template = env.from_string(config)
+                return template.render(context)
+
+            result = deepcopy(config)
+            if isinstance(config, Mapping):
+                for key, value in config.iteritems():
+                    result[key] = evaluate_templates(value, context)
+            else:
+                for index, item in config.enumerate():
+                    result[key] = evaluate_templates(item, context)
+
+            return result
+
+        return evaluate_templates(resource_configuration, config_context)
 
     def expand_configurations(self, environment_name):
         if environment_name in self._expanded_configuration:
