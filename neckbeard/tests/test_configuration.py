@@ -11,13 +11,16 @@ from neckbeard.configuration import (
     CircularSeedEnvironmentError,
 )
 
+
 class MaxScalingManager(object):
     """
     A scaling manager that always assumes the maximum allowed number of nodes
     is the current scale.
     """
-    def get_indexes_for_resource(self,
-            environment, resource_type, resource_name, resource_configuration):
+    def get_indexes_for_resource(
+        self, environment, resource_type, resource_name,
+        resource_configuration,
+    ):
 
         scaling = resource_configuration.get('scaling')
         if not scaling:
@@ -264,10 +267,10 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
-                                "index_for_scaling_group": 0,
+                                "scaling_index": 0,
                             },
                         },
                     },
@@ -279,7 +282,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -295,14 +298,17 @@ class TestConfigContext(unittest2.TestCase):
             scaling_manager=MaxScalingManager(),
         )
 
-        node_context = configuration._get_node_context('test1', 'ec2', 'web', 1)
+        node_context = configuration._get_node_context(
+            'test1', 'ec2', 'web', 1,
+        )
         expected = {
             'environment_name': 'test1',
             'seed_environment_name': 'test2',
             'resource_type': 'ec2',
             'name': 'web',
-            'index_for_scaling_group': 1,
+            'scaling_index': 1,
         }
+        self.assertEqual(node_context, expected)
 
     def test_node_not_zero(self):
         environments = {
@@ -313,7 +319,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -329,13 +335,15 @@ class TestConfigContext(unittest2.TestCase):
             scaling_manager=MaxScalingManager(),
         )
 
-        node_context = configuration._get_node_context('test1', 'ec2', 'web', 7)
+        node_context = configuration._get_node_context(
+            'test1', 'ec2', 'web', 7,
+        )
         expected = {
             'environment_name': 'test1',
             'seed_environment_name': None,
             'resource_type': 'ec2',
             'name': 'web',
-            'index_for_scaling_group': 7,
+            'scaling_index': 7,
         }
         self.assertEqual(len(node_context), len(expected))
         for key, value in expected.items():
@@ -351,10 +359,10 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
-                                "index_for_scaling_group": 3,
+                                "scaling_index": 3,
                             },
                         },
                     },
@@ -367,7 +375,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
                             },
@@ -381,7 +389,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -409,7 +417,7 @@ class TestConfigContext(unittest2.TestCase):
             'seed_environment_name': None,
             'resource_type': 'ec2',
             'name': 'web',
-            'index_for_scaling_group': 3,
+            'scaling_index': 3,
         }
         self.assertEqual(len(node_context), len(expected))
         for key, value in expected.items():
@@ -427,7 +435,7 @@ class TestConfigContext(unittest2.TestCase):
             'seed_environment_name': None,
             'resource_type': 'ec2',
             'name': 'web',
-            'index_for_scaling_group': 0,
+            'scaling_index': 0,
         }
         self.assertEqual(len(node_context), len(expected))
         for key, value in expected.items():
@@ -443,7 +451,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {},
                         },
                     },
@@ -455,7 +463,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -489,7 +497,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
                             },
@@ -504,7 +512,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
                             },
@@ -518,7 +526,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "seed": {
                                 "name": "web",
                             },
@@ -579,7 +587,7 @@ class TestConfigContext(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -598,7 +606,7 @@ class TestConfigContext(unittest2.TestCase):
             environment='test1',
             resource_type='ec2',
             name='web',
-            index_for_scaling_group=0,
+            scaling_index=0,
         )
         expected_variables = [
             'environment',
@@ -619,7 +627,7 @@ class TestConfigContext(unittest2.TestCase):
             'web',
         )
         self.assertEqual(
-            context['node']['index_for_scaling_group'],
+            context['node']['scaling_index'],
             0,
         )
 
@@ -641,7 +649,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "unique_id": "web0-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web0-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -673,7 +681,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                         'web0': {
                             "name": "web0",
                             "resource_template_name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -715,7 +723,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                         'web0': {
                             "name": "web0",
                             "resource_template_name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "foo": "original",
                         },
                     },
@@ -758,7 +766,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                         'web0': {
                             "name": "web0",
                             "resource_template_name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                             "service_addons": {
                                 "redis": {
                                     "foo": "original",
@@ -842,7 +850,7 @@ class TestConfigExpansion(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "unique_id": "web0-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web0-{{ node.scaling_index }}",
                             "resource_template_name": "web",
                             "seed": {
                                 "name": "web",
@@ -855,7 +863,7 @@ class TestConfigExpansion(unittest2.TestCase):
                         },
                         'web1': {
                             "name": "web1",
-                            "unique_id": "web1-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web1-{{ node.scaling_index }}",
                             "resource_template_name": "web",
                             "seed": {
                                 "name": "web",
@@ -879,7 +887,7 @@ class TestConfigExpansion(unittest2.TestCase):
                     'ec2': {
                         'web': {
                             "name": "web",
-                            "unique_id": "web-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
                 },
@@ -903,8 +911,8 @@ class TestConfigExpansion(unittest2.TestCase):
                         },
                         "constant_foo": "{{ environment.constants.foo }}",
                         "secret_foo": "{{ environment.secrets.foo }}",
-                        "seed_constant_foo": "{{ seed_environment.constants.foo }}",
-                        "seed_secret_foo": "{{ seed_environment.secrets.foo }}",
+                        "s_const_foo": "{{ seed_environment.constants.foo }}",
+                        "s_secret_foo": "{{ seed_environment.secrets.foo }}",
                     },
                     "required_overrides": {},
                 },
@@ -939,8 +947,8 @@ class TestConfigExpansion(unittest2.TestCase):
                     },
                     "constant_foo": "v_foo1",
                     "secret_foo": "v_secret1",
-                    "seed_constant_foo": "v_foo2",
-                    "seed_secret_foo": "v_secret2",
+                    "s_const_foo": "v_foo2",
+                    "s_secret_foo": "v_secret2",
                 },
                 'web1-0': {
                     "name": "web1",
@@ -964,8 +972,8 @@ class TestConfigExpansion(unittest2.TestCase):
                     },
                     "constant_foo": "v_foo1",
                     "secret_foo": "v_secret1",
-                    "seed_constant_foo": "v_foo2",
-                    "seed_secret_foo": "v_secret2",
+                    "s_const_foo": "v_foo2",
+                    "s_secret_foo": "v_secret2",
                 },
                 'web1-1': {
                     "name": "web1",
@@ -989,8 +997,8 @@ class TestConfigExpansion(unittest2.TestCase):
                     },
                     "constant_foo": "v_foo1",
                     "secret_foo": "v_secret1",
-                    "seed_constant_foo": "v_foo2",
-                    "seed_secret_foo": "v_secret2",
+                    "s_const_foo": "v_foo2",
+                    "s_secret_foo": "v_secret2",
                 },
             },
         }
@@ -1030,11 +1038,11 @@ class TestFileDumping(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "unique_id": "web0-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web0-{{ node.scaling_index }}",
                         },
                         'web1': {
                             "name": "web1",
-                            "unique_id": "web1-{{ node.index_for_scaling_group }}",
+                            "unique_id": "web1-{{ node.scaling_index }}",
                             "scaling": {
                                 "minimum": 1,
                                 "maximum": 2,
@@ -1055,7 +1063,7 @@ class TestFileDumping(unittest2.TestCase):
             scaling_manager=MaxScalingManager(),
         )
         output_dir = path.join(self.tmp_dir, 'test1')
-        expanded_configuration = configuration.dump_environment_configuration(
+        configuration.dump_environment_configuration(
             'test1',
             output_dir,
         )

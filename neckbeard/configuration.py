@@ -7,6 +7,7 @@ from collections import Mapping
 from copy import deepcopy
 from jinja2 import Environment
 
+
 class CircularSeedEnvironmentError(Exception):
     pass
 
@@ -17,10 +18,9 @@ def mkdir_p(path):
     """
     try:
         os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else: raise
+    except OSError as exc:  # Python >2.5
+        if exc.errno != errno.EEXIST or not os.path.isdir(path):
+            raise
 
 
 class ConfigurationManager(object):
@@ -47,10 +47,15 @@ class ConfigurationManager(object):
           context to generate an individual expanded configuration for each
           `CloudResource` that should exist.
     """
-    def __init__(self,
-            scaling_manager, environments,
-            constants=None, secrets=None, secrets_tpl=None,
-            node_templates=None):
+    def __init__(
+        self,
+        scaling_manager,
+        environments,
+        constants=None,
+        secrets=None,
+        secrets_tpl=None,
+        node_templates=None,
+    ):
         self.scaling_manager = scaling_manager
         self.environments = environments
 
@@ -90,7 +95,10 @@ class ConfigurationManager(object):
         return self._get_environment_secrets(seed_environment_name)
 
     def _get_seed_environment_name(
-        self, environment_name, check_circular_reference=True):
+        self,
+        environment_name,
+        check_circular_reference=True,
+    ):
         """
         Get the `seed_environment` name for the given environment.
         """
@@ -107,7 +115,7 @@ class ConfigurationManager(object):
             # before doing any of this stuff and this should be a type of
             # validation error.
             raise Exception(
-                "seed_environment %s does not exist" % seed_environment)
+                "seed_environment %s does not exist" % seed_environment_name)
         # TODO: This should actually be caught by requiring validation
         # before doing any of this stuff and this should be a type of
         # validation error.
@@ -123,7 +131,8 @@ class ConfigurationManager(object):
 
     def _get_node_context(
         self, environment_name, resource_type, resource_name,
-        index_for_scaling_group):
+        scaling_index,
+    ):
         """
         Returns a dictionary with the following values for the given node.
 
@@ -131,7 +140,7 @@ class ConfigurationManager(object):
           * seed_environment_name
           * resource_type
           * name
-          * index_for_scaling_group
+          * scaling_index
         """
         context = {
             'environment_name': environment_name,
@@ -142,13 +151,14 @@ class ConfigurationManager(object):
         context['seed_environment_name'] = self._get_seed_environment_name(
             environment_name,
         )
-        context['index_for_scaling_group'] = index_for_scaling_group
+        context['scaling_index'] = scaling_index
 
         return context
 
     def _get_seed_node_context(
         self, environment_name, resource_type, resource_name,
-        index_for_scaling_group):
+        scaling_index,
+    ):
 
         environment = self.environments[environment_name]
         resource_types = environment['aws_nodes'][resource_type]
@@ -165,9 +175,9 @@ class ConfigurationManager(object):
         context = {}
         context['resource_type'] = resource_type
         context['name'] = seed.get('name', resource_name)
-        context['index_for_scaling_group'] =  seed.get(
-            'index_for_scaling_group',
-            index_for_scaling_group,
+        context['scaling_index'] = seed.get(
+            'scaling_index',
+            scaling_index,
         )
         context['environment_name'] = seed_environment_name
         context['seed_environment_name'] = None
@@ -175,7 +185,8 @@ class ConfigurationManager(object):
         return context
 
     def _get_config_context_for_resource(
-        self, environment, resource_type, name, index_for_scaling_group=0):
+        self, environment, resource_type, name, scaling_index=0,
+    ):
         """
         For a particular index of a particular resource, get the template
         context used for generating the configuration. This includes:
@@ -188,13 +199,13 @@ class ConfigurationManager(object):
               * seed_environment_name
               * resource_type
               * name
-              * index_for_scaling_group
+              * scaling_index
             * seed_node
               * environment_name
               * seed_environment_name
               * resource_type
               * name
-              * index_for_scaling_group
+              * scaling_index
         """
         context = {
             'environment': {},
@@ -206,10 +217,11 @@ class ConfigurationManager(object):
         context['environment']['secrets'] = self._get_environment_secrets(
             environment,
         )
-        context['seed_environment']['constants'] = self._get_seed_environment_constants(
+        seed_env = context['seed_environment']
+        seed_env['constants'] = self._get_seed_environment_constants(
             environment,
         )
-        context['seed_environment']['secrets'] = self._get_seed_environment_secrets(
+        seed_env['secrets'] = self._get_seed_environment_secrets(
             environment,
         )
 
@@ -217,18 +229,17 @@ class ConfigurationManager(object):
             environment,
             resource_type,
             name,
-            index_for_scaling_group,
+            scaling_index,
         )
         context['seed_node'] = self._get_seed_node_context(
             environment,
             resource_type,
             name,
-            index_for_scaling_group,
+            scaling_index,
         )
         return context
 
-    def _apply_resource_template(self,
-            resource_type, resource_configuration):
+    def _apply_resource_template(self, resource_type, resource_configuration):
 
         def deep_merge(base, overrides):
             if not isinstance(overrides, Mapping):
@@ -310,19 +321,22 @@ class ConfigurationManager(object):
                         environment_name,
                         resource_type,
                         resource_name,
-                        index_for_scaling_group=index,
+                        scaling_index=index,
                     )
-                    unique_id, evaluated_resource_conf = self._evaluate_configuration(
+                    result = self._evaluate_configuration(
                         config_context,
                         expanded_configuration,
                     )
+                    unique_id, evaluated_resource_conf = result
 
                     # TODO: Detect duplicate unique ids
                     resource_conf[unique_id] = evaluated_resource_conf
 
         return expanded_conf
 
-    def dump_environment_configuration(self, environment_name, output_directory):
+    def dump_environment_configuration(
+        self, environment_name, output_directory,
+    ):
         expanded_configuration = self.expand_configurations(environment_name)
 
         if os.path.exists(output_directory):
@@ -358,4 +372,3 @@ class CloudResourceConfiguration(object):
 
     def get_expanded_configurations(self):
         pass
-

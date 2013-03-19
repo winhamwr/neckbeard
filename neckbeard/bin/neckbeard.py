@@ -10,6 +10,8 @@ from neckbeard.configuration import ConfigurationManager
 logger = logging.getLogger('cli')
 
 COMMANDS = ['check']
+
+
 def main():
     logging.basicConfig(level=logging.INFO)
 
@@ -60,10 +62,13 @@ def main():
     if args.command == 'check':
         print "Configuration for %s checks out A-ok!" % args.environment
         output_dir = os.path.join(
-            configuration_directory, '.expanded_config', args.environment),
+            configuration_directory, '.expanded_config', args.environment,
         )
         print "You can see the deets on your nodes in: %s" % output_dir
-        configuration.dump_environment_configurations(args.environment, output_dir)
+        configuration.dump_environment_configurations(
+            args.environment,
+            output_dir,
+        )
         exit(0)
 
 
@@ -71,4 +76,3 @@ def main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     main()
-
