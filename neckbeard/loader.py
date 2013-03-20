@@ -1,19 +1,12 @@
 
 import json
+import yaml
 import logging
 import os
 from copy import copy
+from yaml.scanner import ScannerError
 
 logger = logging.getLogger('loader')
-
-def all_json_files(directory):
-    """
-    Generator to iterate through all the JSON files in a directory.
-    """
-    for path, dirs, files in os.walk(directory):
-        for f in files:
-            if f.endswith('.json'):
-                yield os.path.join(path, f)
 
 
 class NeckbeardLoader(object):
@@ -24,9 +17,9 @@ class NeckbeardLoader(object):
     Along the way, it also does bare minimum validation, ensuring that:
 
         * We're not missing any required files
-        * Everything is valid JSON
+        * Everything is valid JSON or YAML
         * Everything is properly versioned with a `neckbeard_conf_version`
-        * JSON properties that should agree with the directory structure
+        * JSON/YAML properties that should agree with the directory structure
           actually do that (you can't put an `ec2` node_template in an `rds`
           directory).
     """
@@ -38,6 +31,14 @@ class NeckbeardLoader(object):
         'invalid_json': (
             "Invalid JSON. Check for trailing commas. "
             "Error: %(error)s"
+        ),
+        'invalid_yaml': (
+            "Invalid YAML. "
+            "Error: %(error)s"
+        ),
+        'duplicate_config': (
+            "JSON and YAML files with same name should not be present. "
+            "File: %(filename)s"
         ),
         'missing_file': "File is required, but missing.",
         'missing_environment': (
@@ -79,6 +80,18 @@ class NeckbeardLoader(object):
         self.validation_errors = {}
         self.raw_configuration = copy(self.CONFIG_STRUCTURE)
 
+    def _all_config_files(self, directory):
+        """
+        Generator to iterate through all of the JSON and YAML files in a directory.
+        """
+        for path, dirs, files in os.walk(directory):
+            for f in files:
+                full_fp = os.path.join(path, f)
+                extensionless_fp = full_fp[:-5]
+                if f.endswith('.json') or f.endswith('.yaml'):
+                    yield extensionless_fp
+
+
     def _add_validation_error(self, file_path, error_type, extra_context=None):
         if not file_path in self.validation_errors:
             self.validation_errors[file_path] = {}
@@ -108,22 +121,39 @@ class NeckbeardLoader(object):
                 for error in errors:
                     logger.warning("    %s", error)
 
-    def _get_json_from_file(self, file_path):
+    def _get_config_from_file(self, file_path):
+        if os.path.isfile('%s.json' % file_path) and os.path.isfile('%s.yaml' % file_path):
+            _, name = os.path.split(file_path)
+            self._add_validation_error(file_path, 'duplicate_config', extra_context={'filename': name})
+
+        if os.path.isfile('%s.json' % file_path):
+            return self._get_data_from_file(file_path, json, 'json')
+        elif os.path.isfile('%s.yaml' % file_path):
+            return self._get_data_from_file(file_path, yaml, 'yaml')
+        else:
+            self._add_validation_error(
+                file_path,
+                'missing_file',
+            )
+            return {}
+
+    def _get_data_from_file(self, extensionless_file_path, parser, file_type):
+        file_path = '%s.%s' % (extensionless_file_path, file_type)
         try:
             with open(file_path, 'r') as fp:
                 try:
-                    return json.load(fp)
-                except ValueError as e:
-                    logger.debug("Error parsing JSON file: %s", file_path)
+                    return parser.load(fp)
+                except (ValueError, ScannerError) as e:
+                    logger.debug("Error parsing %s file: %s", (file_type, file_path,))
                     logger.debug("%s", e)
                     self._add_validation_error(
                         file_path,
-                        'invalid_json',
+                        'invalid_%s' % file_type.lower(),
                         extra_context={'error': e},
                     )
                     return {}
         except IOError as e:
-            logger.debug("Error opening JSON file: %s", file_path)
+            logger.debug("Error opening %s file: %s", (file_type, file_path,))
             logger.debug("%s", e)
             self._add_validation_error(
                 file_path,
@@ -131,22 +161,27 @@ class NeckbeardLoader(object):
             )
             return {}
 
-    def _get_name_from_json_path(self, file_path):
+
+    def _get_name_from_conf_file_path(self, file_path):
         """
-        Given a file path to a json config file, get the file's path-roomed and
-        .json-removed name. For environment files, this is the environment
+        Given a file path to a json/yaml config file, get the file's path-roomed and
+        .json/.yaml-removed name. For environment files, this is the environment
         name. For node_templates, the template name, etc.
         """
         _, tail = os.path.split(file_path)
-        name, _ = tail.rsplit('.json', 1)
-
-        return name
+        # if tail.endswith('.json'):
+        #    name, _ = tail.rsplit('.json', 1)
+        # elif tail.endswith('.yaml'):
+        #    name, _ = tail.rsplit('.yaml', 1)
+        # TODO: confirm that it will never be the case that tail ends with somethign else
+        # return name
+        return tail
 
     def _load_root_configuration_files(self, configuration_directory):
         root_configs = {}
         for conf_file in self.ROOT_CONF_FILES:
-            fp = os.path.join(configuration_directory, '%s.json' % conf_file)
-            root_configs[conf_file] = self._get_json_from_file(fp)
+            extensionless_fp = os.path.join(configuration_directory, conf_file)
+            root_configs[conf_file] = self._get_config_from_file(extensionless_fp)
 
         return root_configs
 
@@ -154,9 +189,9 @@ class NeckbeardLoader(object):
         environment_dir = os.path.join(configuration_directory, 'environments')
         configs = {}
 
-        for environment_config_fp in all_json_files(environment_dir):
-            name = self._get_name_from_json_path(environment_config_fp)
-            configs[name] = self._get_json_from_file(environment_config_fp)
+        for environment_config_fp in self._all_config_files(environment_dir):
+            name = self._get_name_from_conf_file_path(environment_config_fp)
+            configs[name] = self._get_config_from_file(environment_config_fp)
 
         if len(configs) == 0:
             # There were no environment files. That's a problem
@@ -187,9 +222,9 @@ class NeckbeardLoader(object):
                 )
                 continue
 
-            for node_config_fp in all_json_files(node_type_dir):
-                name = self._get_name_from_json_path(node_config_fp)
-                configs[aws_type][name] = self._get_json_from_file(
+            for node_config_fp in self._all_config_files(node_type_dir):
+                name = self._get_name_from_conf_file_path(node_config_fp)
+                configs[aws_type][name] = self._get_config_from_file(
                     node_config_fp,
                 )
 

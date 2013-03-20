@@ -1,0 +1,5 @@
+defaults: {}
+neckbeard_conf_version: '0.1'
+node_aws_type: elb
+node_template_name: api
+required_overrides: {}

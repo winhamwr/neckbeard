@@ -8,14 +8,15 @@ FIXTURE_CONFIGS_DIR = path.abspath(
     path.join(path.dirname(__file__), 'fixture_configs'),
 )
 
-class TestFileLoading(unittest.TestCase):
-
+class FileLoadingHelper(unittest.TestCase):
     def _get_loader_for_fixture(self, fixture_name):
         configuration_directory = path.join(FIXTURE_CONFIGS_DIR, fixture_name)
 
         return NeckbeardLoader(configuration_directory)
 
     def _get_validation_errors(self, loader, config_file, error_type=None):
+        """config_file: full subpath from configuration directory root to config file
+        """
         full_fp = path.join(loader.configuration_directory, config_file)
         if full_fp not in loader.validation_errors:
             return []
@@ -27,6 +28,9 @@ class TestFileLoading(unittest.TestCase):
             return []
 
         return loader.validation_errors[full_fp][error_type]
+
+
+class TestFileLoading(FileLoadingHelper):
 
     def test_all_files_loaded(self):
         # Ensure that a load on a minimally-valid configuration results in the
@@ -66,10 +70,119 @@ class TestFileLoading(unittest.TestCase):
                 len(expected_node_templates),
             )
 
+    def test_invalid_path(self):
+        # We give a nice error if the `configuration_directory` doesn't exist
+        # or we can't access it
+        loader = self._get_loader_for_fixture('does_not_exist')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        self.assertEqual(len(loader.validation_errors), 1)
+
+    def test_missing_files(self):
+        # We should ensure that all of the required files are present
+        loader = self._get_loader_for_fixture('empty')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'constants',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'secrets',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'secrets.tpl',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments',
+            'missing_environment',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+    def test_json_and_yaml_with_same_name_add_duplicate_config_error(self):
+        loader = self._get_loader_for_fixture('duplicate_errors')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'environments/beta',
+            'duplicate_config',
+        )
+        self.assertEqual(len(validation_errors), 2)
+
+class TestJsonLoading(FileLoadingHelper):
+
     def test_json_to_dict(self):
         # Ensure that all of the JSON files have been converted to python
         # dictionaries
         loader = self._get_loader_for_fixture('minimal')
+        self.assertTrue(loader.configuration_is_valid())
+
+        # Ensure things are dictionaries by treating them as such. One from
+        # each type of file
+        self.assertEqual(
+            loader.raw_configuration['constants'].get('neckbeard_conf_version'),
+            '0.1',
+        )
+        self.assertEqual(
+            loader.raw_configuration['secrets'].get('neckbeard_conf_version'),
+            '0.1',
+        )
+        self.assertEqual(
+            loader.raw_configuration['secrets.tpl'].get('neckbeard_conf_version'),
+            '0.1',
+        )
+        environments = loader.raw_configuration['environments']
+        self.assertEqual(
+            environments['production'].get('name'),
+            'production',
+        )
+        node_templates = loader.raw_configuration['node_templates']
+        self.assertEqual(
+            node_templates['ec2']['web'].get('node_template_name'),
+            'web',
+        )
+        self.assertEqual(
+            node_templates['rds']['master'].get('node_template_name'),
+            'master',
+        )
+        self.assertEqual(
+            node_templates['elb']['api'].get('node_template_name'),
+            'api',
+        )
+
+    def test_invalid_json(self):
+        # If a file is invalid JSON, we should display that as a validation
+        # error and bail out early
+        loader = self._get_loader_for_fixture('validation_errors')
+
+        self.assertFalse(loader.configuration_is_valid())
+
+        validation_errors = self._get_validation_errors(
+            loader,
+            'constants.json',
+            'invalid_json',
+        )
+        self.assertEqual(len(validation_errors), 1)
+
+class TestYamlLoading(FileLoadingHelper):
+
+    def test_yaml_to_dict(self):
+        # Ensure that all of the YAML files have been converted to python
+        # dictionaries
+        loader = self._get_loader_for_fixture('minimal_yaml')
 
         self.assertTrue(loader.configuration_is_valid())
 
@@ -106,80 +219,22 @@ class TestFileLoading(unittest.TestCase):
             'api',
         )
 
-    def test_invalid_path(self):
-        # We give a nice error if the `configuration_directory` doesn't exist
-        # or we can't access it
-        loader = self._get_loader_for_fixture('does_not_exist')
-
-        self.assertFalse(loader.configuration_is_valid())
-
-        self.assertEqual(len(loader.validation_errors), 1)
-
-    def test_invalid_json(self):
-        # If a file is invalid JSON, we should display that as a validation
+    def test_invalid_yaml(self):
+        # If a file is invalid YAML, we should display that as a validation
         # error and bail out early
-        loader = self._get_loader_for_fixture('validation_errors')
+        loader = self._get_loader_for_fixture('validation_errors_yaml')
 
         self.assertFalse(loader.configuration_is_valid())
 
         validation_errors = self._get_validation_errors(
             loader,
-            'constants.json',
-            'invalid_json',
-        )
-        self.assertEqual(len(validation_errors), 1)
-
-    def test_missing_files(self):
-        # We should ensure that all of the required files are present
-        loader = self._get_loader_for_fixture('empty')
-
-        self.assertFalse(loader.configuration_is_valid())
-
-        validation_errors = self._get_validation_errors(
-            loader,
-            'constants.json',
-            'missing_file',
-        )
-        self.assertEqual(len(validation_errors), 1)
-        validation_errors = self._get_validation_errors(
-            loader,
-            'secrets.json',
-            'missing_file',
-        )
-        self.assertEqual(len(validation_errors), 1)
-        validation_errors = self._get_validation_errors(
-            loader,
-            'secrets.tpl.json',
-            'missing_file',
-        )
-        self.assertEqual(len(validation_errors), 1)
-        validation_errors = self._get_validation_errors(
-            loader,
-            'environments',
-            'missing_environment',
+            'constants.yaml',
+            'invalid_yaml',
         )
         self.assertEqual(len(validation_errors), 1)
 
 
-class TestValidation(unittest.TestCase):
-
-    def _get_loader_for_fixture(self, fixture_name):
-        configuration_directory = path.join(FIXTURE_CONFIGS_DIR, fixture_name)
-
-        return NeckbeardLoader(configuration_directory)
-
-    def _get_validation_errors(self, loader, config_file, error_type=None):
-        full_fp = path.join(loader.configuration_directory, config_file)
-        if full_fp not in loader.validation_errors:
-            return []
-
-        if error_type is None:
-            return loader.validation_errors[full_fp]
-
-        if error_type not in loader.validation_errors[full_fp]:
-            return []
-
-        return loader.validation_errors[full_fp][error_type]
+class TestValidation(FileLoadingHelper):
 
     def test_node_aws_type_mismatch(self):
         # We should ensure that `node_aws_type` matches the directory where the

@@ -1,0 +1,5 @@
+defaults: {}
+neckbeard_conf_version: '0.1'
+node_aws_type: rds
+node_template_name: slave
+required_overrides: {}
