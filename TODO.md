@@ -7,6 +7,11 @@
 
 ## Make getting started easy
 
+* Use `resource` in place of `node`:
+  * `resource_template_name`
+* De-AWSify things
+  * `resources` instead of `aws_nodes`
+  * `aws__ec2` instead of `ec2`
 * Add a CLI for creating and configuring at least one Django hello world
   template. Two web + Memcached nodes in 2 AZ's, RDS.
 * Getting started documentation

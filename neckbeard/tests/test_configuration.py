@@ -649,7 +649,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_conf = configuration._apply_resource_template(
+        expanded_conf = configuration._apply_node_template(
             'ec2',
             environments['test1']['aws_nodes']['ec2']['web0'],
         )
@@ -664,7 +664,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "resource_template_name": "web",
+                            "node_template_name": "web",
                             "unique_id": "web-{{ node.scaling_index }}",
                         },
                     },
@@ -676,7 +676,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                 "web": {
                     NeckbeardLoader.VERSION_OPTION: '0.1',
                     "resource_type": "ec2",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "defaults": {
                         "foo1": "v_foo1",
                     },
@@ -690,7 +690,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_conf = configuration._apply_resource_template(
+        expanded_conf = configuration._apply_node_template(
             'ec2',
             environments['test1']['aws_nodes']['ec2']['web0'],
         )
@@ -706,7 +706,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "resource_template_name": "web",
+                            "node_template_name": "web",
                             "unique_id": "web-{{ node.scaling_index }}",
                             "foo": "original",
                         },
@@ -719,7 +719,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                 "web": {
                     NeckbeardLoader.VERSION_OPTION: '0.1',
                     "resource_type": "ec2",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "defaults": {
                         "foo": "template",
                     },
@@ -733,7 +733,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_conf = configuration._apply_resource_template(
+        expanded_conf = configuration._apply_node_template(
             'ec2',
             environments['test1']['aws_nodes']['ec2']['web0'],
         )
@@ -749,7 +749,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                     'ec2': {
                         'web0': {
                             "name": "web0",
-                            "resource_template_name": "web",
+                            "node_template_name": "web",
                             "unique_id": "web-{{ node.scaling_index }}",
                             "service_addons": {
                                 "redis": {
@@ -766,7 +766,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
                 "web": {
                     NeckbeardLoader.VERSION_OPTION: '0.1',
                     "resource_type": "ec2",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "defaults": {
                         "service_addons": {
                             "redis": {
@@ -788,7 +788,7 @@ class TestResourceTemplateApplication(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_conf = configuration._apply_resource_template(
+        expanded_conf = configuration._apply_node_template(
             'ec2',
             environments['test1']['aws_nodes']['ec2']['web0'],
         )
@@ -835,7 +835,7 @@ class TestConfigExpansion(unittest2.TestCase):
                         'web0': {
                             "name": "web0",
                             "unique_id": "web0-{{ node.scaling_index }}",
-                            "resource_template_name": "web",
+                            "node_template_name": "web",
                             "seed": {
                                 "name": "web",
                             },
@@ -848,7 +848,7 @@ class TestConfigExpansion(unittest2.TestCase):
                         'web1': {
                             "name": "web1",
                             "unique_id": "web1-{{ node.scaling_index }}",
-                            "resource_template_name": "web",
+                            "node_template_name": "web",
                             "seed": {
                                 "name": "web",
                             },
@@ -882,7 +882,7 @@ class TestConfigExpansion(unittest2.TestCase):
                 "web": {
                     NeckbeardLoader.VERSION_OPTION: '0.1',
                     "resource_type": "ec2",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "defaults": {
                         "service_addons": {
                             "redis": {
@@ -916,7 +916,7 @@ class TestConfigExpansion(unittest2.TestCase):
                 'web0-0': {
                     "name": "web0",
                     "unique_id": "web0-0",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "seed": {
                         "name": "web",
                     },
@@ -937,7 +937,7 @@ class TestConfigExpansion(unittest2.TestCase):
                 'web1-0': {
                     "name": "web1",
                     "unique_id": "web1-0",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "seed": {
                         "name": "web",
                     },
@@ -962,7 +962,7 @@ class TestConfigExpansion(unittest2.TestCase):
                 'web1-1': {
                     "name": "web1",
                     "unique_id": "web1-1",
-                    "resource_template_name": "web",
+                    "node_template_name": "web",
                     "seed": {
                         "name": "web",
                     },

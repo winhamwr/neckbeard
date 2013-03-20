@@ -1,13 +1,16 @@
 import errno
+import jinja2
 import json
+import logging
 import os
 import shutil
 
 from collections import Mapping
 from copy import deepcopy
-from jinja2 import Environment
 
 from neckbeard.scaling import MinScalingBackend  # TODO: Don't hardcode this
+
+logger = logging.getLogger('configuration')
 
 
 class CircularSeedEnvironmentError(Exception):
@@ -260,7 +263,7 @@ class ConfigurationManager(object):
         )
         return context
 
-    def _apply_resource_template(self, resource_type, resource_configuration):
+    def _apply_node_template(self, resource_type, resource_configuration):
 
         def deep_merge(base, overrides):
             if not isinstance(overrides, Mapping):
@@ -273,25 +276,27 @@ class ConfigurationManager(object):
                     result[key] = deepcopy(value)
             return result
 
-        resource_template_name = resource_configuration.get(
-            'resource_template_name',
+        node_template_name = resource_configuration.get(
+            'node_template_name',
         )
-        if not resource_template_name:
+        if not node_template_name:
             return resource_configuration
 
         # TODO: Do validation here when the template doesn't exist
-        resource_templates = self.node_templates[resource_type]
-        resource_template = resource_templates[resource_template_name]
+        node_templates = self.node_templates[resource_type]
+        node_template = node_templates[node_template_name]
 
         return deep_merge(
-            resource_template['defaults'],
+            node_template['defaults'],
             resource_configuration,
         )
 
     def _evaluate_configuration(self, config_context, resource_configuration):
         def evaluate_templates(config, context):
             if isinstance(config, basestring):
-                env = Environment()
+                # TODO: Add validation here to catch the exception for
+                # undefined
+                env = jinja2.Environment(undefined=jinja2.StrictUndefined)
                 template = env.from_string(config)
                 return template.render(context)
             constant_types = [bool, int, float]
@@ -327,8 +332,8 @@ class ConfigurationManager(object):
             for resource_name, configuration in resources.items():
                 resource_conf = expanded_conf[resource_type]
 
-                # Apply the `resource_template`, if used
-                expanded_configuration = self._apply_resource_template(
+                # Apply the `node_template`, if used
+                expanded_configuration = self._apply_node_template(
                     resource_type,
                     configuration,
                 )
@@ -338,6 +343,12 @@ class ConfigurationManager(object):
                     resource_name,
                     expanded_configuration,
                 ):
+                    logger.debug(
+                        "Expanding context for the %dth %s %s resource",
+                        index,
+                        resource_name,
+                        resource_type,
+                    )
                     config_context = self._get_config_context_for_resource(
                         environment_name,
                         resource_type,
