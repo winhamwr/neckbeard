@@ -8,6 +8,7 @@ FIXTURE_CONFIGS_DIR = path.abspath(
     path.join(path.dirname(__file__), 'fixture_configs'),
 )
 
+
 class FileLoadingHelper(unittest.TestCase):
     def _get_loader_for_fixture(self, fixture_name):
         configuration_directory = path.join(FIXTURE_CONFIGS_DIR, fixture_name)
@@ -15,7 +16,9 @@ class FileLoadingHelper(unittest.TestCase):
         return NeckbeardLoader(configuration_directory)
 
     def _get_validation_errors(self, loader, config_file, error_type=None):
-        """config_file: full subpath from configuration directory root to config file
+        """
+        `config_file` is the file's path relative to the root configuration
+        directory.
         """
         full_fp = path.join(loader.configuration_directory, config_file)
         if full_fp not in loader.validation_errors:
@@ -43,9 +46,7 @@ class TestFileLoading(FileLoadingHelper):
         environments = ['beta', 'production']
         for environment_name in environments:
             self.assertTrue(
-                loader.raw_configuration['environments'].has_key(
-                    environment_name,
-                ),
+                environment_name in loader.raw_configuration['environments'],
             )
         self.assertEqual(
             len(loader.raw_configuration['environments']),
@@ -59,15 +60,15 @@ class TestFileLoading(FileLoadingHelper):
             "elb": ['web', 'api'],
         }
         node_templates = loader.raw_configuration['node_templates']
-        for aws_type, expected_node_templates in expected_node_templates.items():
+        for aws_type, expected_templates in expected_node_templates.items():
             node_templates_for_type = node_templates[aws_type]
-            for expected_node_template in expected_node_templates:
+            for expected_node_template in expected_templates:
                 self.assertTrue(
                     expected_node_template in node_templates_for_type,
                 )
             self.assertEqual(
                 len(node_templates_for_type),
-                len(expected_node_templates),
+                len(expected_templates),
             )
 
     def test_invalid_path(self):
@@ -122,8 +123,8 @@ class TestFileLoading(FileLoadingHelper):
         )
         self.assertEqual(len(validation_errors), 2)
 
-class TestJsonLoading(FileLoadingHelper):
 
+class TestJsonLoading(FileLoadingHelper):
     def test_json_to_dict(self):
         # Ensure that all of the JSON files have been converted to python
         # dictionaries
@@ -133,7 +134,9 @@ class TestJsonLoading(FileLoadingHelper):
         # Ensure things are dictionaries by treating them as such. One from
         # each type of file
         self.assertEqual(
-            loader.raw_configuration['constants'].get('neckbeard_conf_version'),
+            loader.raw_configuration['constants'].get(
+                'neckbeard_conf_version',
+            ),
             '0.1',
         )
         self.assertEqual(
@@ -141,7 +144,9 @@ class TestJsonLoading(FileLoadingHelper):
             '0.1',
         )
         self.assertEqual(
-            loader.raw_configuration['secrets.tpl'].get('neckbeard_conf_version'),
+            loader.raw_configuration['secrets.tpl'].get(
+                'neckbeard_conf_version',
+            ),
             '0.1',
         )
         environments = loader.raw_configuration['environments']
@@ -177,8 +182,8 @@ class TestJsonLoading(FileLoadingHelper):
         )
         self.assertEqual(len(validation_errors), 1)
 
-class TestYamlLoading(FileLoadingHelper):
 
+class TestYamlLoading(FileLoadingHelper):
     def test_yaml_to_dict(self):
         # Ensure that all of the YAML files have been converted to python
         # dictionaries
@@ -189,7 +194,9 @@ class TestYamlLoading(FileLoadingHelper):
         # Ensure things are dictionaries by treating them as such. One from
         # each type of file
         self.assertEqual(
-            loader.raw_configuration['constants'].get('neckbeard_conf_version'),
+            loader.raw_configuration['constants'].get(
+                'neckbeard_conf_version',
+            ),
             '0.1',
         )
         self.assertEqual(
@@ -197,7 +204,9 @@ class TestYamlLoading(FileLoadingHelper):
             '0.1',
         )
         self.assertEqual(
-            loader.raw_configuration['secrets.tpl'].get('neckbeard_conf_version'),
+            loader.raw_configuration['secrets.tpl'].get(
+                'neckbeard_conf_version',
+            ),
             '0.1',
         )
         environments = loader.raw_configuration['environments']
@@ -450,8 +459,8 @@ class TestValidation(FileLoadingHelper):
         self.assertEqual(len(validation_errors), 0)
 
     def test_environment_name_mismatch(self):
-        # We should ensure that, for environments, the `name` matches the filename
-        # (minus JSON) where the JSON file lives
+        # We should ensure that, for environments, the `name` matches the
+        # filename (minus JSON) where the JSON file lives
         loader = self._get_loader_for_fixture('minimal')
         loader.validation_errors = {}
 

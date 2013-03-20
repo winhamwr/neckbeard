@@ -82,7 +82,8 @@ class NeckbeardLoader(object):
 
     def _all_config_files(self, directory):
         """
-        Generator to iterate through all of the JSON and YAML files in a directory.
+        Generator to iterate through all of the JSON and YAML files in a
+        directory.
         """
         for path, dirs, files in os.walk(directory):
             for f in files:
@@ -90,7 +91,6 @@ class NeckbeardLoader(object):
                 extensionless_fp = full_fp[:-5]
                 if f.endswith('.json') or f.endswith('.yaml'):
                     yield extensionless_fp
-
 
     def _add_validation_error(self, file_path, error_type, extra_context=None):
         if not file_path in self.validation_errors:
@@ -109,7 +109,8 @@ class NeckbeardLoader(object):
         self.validation_errors[file_path][error_type].append(error_message)
 
     def _add_path_relative_validation_error(
-        self, relative_path, error_type, extra_context=None):
+        self, relative_path, error_type, extra_context=None,
+    ):
 
         file_path = os.path.join(self.configuration_directory, relative_path)
         self._add_validation_error(file_path, error_type, extra_context)
@@ -122,13 +123,20 @@ class NeckbeardLoader(object):
                     logger.warning("    %s", error)
 
     def _get_config_from_file(self, file_path):
-        if os.path.isfile('%s.json' % file_path) and os.path.isfile('%s.yaml' % file_path):
+        json_exists = os.path.isfile('%s.json' % file_path)
+        yaml_exists = os.path.isfile('%s.yaml' % file_path)
+        if json_exists and yaml_exists:
             _, name = os.path.split(file_path)
-            self._add_validation_error(file_path, 'duplicate_config', extra_context={'filename': name})
+            self._add_validation_error(
+                file_path,
+                'duplicate_config',
+                extra_context={'filename': name},
+            )
+            return {}
 
-        if os.path.isfile('%s.json' % file_path):
+        if json_exists:
             return self._get_data_from_file(file_path, json, 'json')
-        elif os.path.isfile('%s.yaml' % file_path):
+        elif yaml_exists:
             return self._get_data_from_file(file_path, yaml, 'yaml')
         else:
             self._add_validation_error(
@@ -144,7 +152,11 @@ class NeckbeardLoader(object):
                 try:
                     return parser.load(fp)
                 except (ValueError, ScannerError) as e:
-                    logger.debug("Error parsing %s file: %s", (file_type, file_path,))
+                    logger.debug(
+                        "Error parsing %s file: %s",
+                        file_type,
+                        file_path,
+                    )
                     logger.debug("%s", e)
                     self._add_validation_error(
                         file_path,
@@ -153,7 +165,7 @@ class NeckbeardLoader(object):
                     )
                     return {}
         except IOError as e:
-            logger.debug("Error opening %s file: %s", (file_type, file_path,))
+            logger.debug("Error opening %s file: %s", file_type, file_path)
             logger.debug("%s", e)
             self._add_validation_error(
                 file_path,
@@ -161,27 +173,28 @@ class NeckbeardLoader(object):
             )
             return {}
 
-
     def _get_name_from_conf_file_path(self, file_path):
         """
-        Given a file path to a json/yaml config file, get the file's path-roomed and
-        .json/.yaml-removed name. For environment files, this is the environment
-        name. For node_templates, the template name, etc.
+        Given a file path to a json/yaml config file, get the file's
+        path-roomed and .json/.yaml-removed name. For environment files, this
+        is the environment name. For node_templates, the template name, etc.
         """
         _, tail = os.path.split(file_path)
         # if tail.endswith('.json'):
         #    name, _ = tail.rsplit('.json', 1)
         # elif tail.endswith('.yaml'):
         #    name, _ = tail.rsplit('.yaml', 1)
-        # TODO: confirm that it will never be the case that tail ends with somethign else
-        # return name
+        # TODO: confirm that it will never be the case that tail ends with
+        # somethign else
         return tail
 
     def _load_root_configuration_files(self, configuration_directory):
         root_configs = {}
         for conf_file in self.ROOT_CONF_FILES:
             extensionless_fp = os.path.join(configuration_directory, conf_file)
-            root_configs[conf_file] = self._get_config_from_file(extensionless_fp)
+            root_configs[conf_file] = self._get_config_from_file(
+                extensionless_fp,
+            )
 
         return root_configs
 
@@ -203,7 +216,10 @@ class NeckbeardLoader(object):
         return configs
 
     def _load_node_template_files(self, configuration_directory):
-        node_templates_dir = os.path.join(configuration_directory, 'node_templates')
+        node_templates_dir = os.path.join(
+            configuration_directory,
+            'node_templates',
+        )
         configs = copy(self.CONFIG_STRUCTURE['node_templates'])
 
         # If there aren't any node_templates, no sweat
@@ -243,13 +259,16 @@ class NeckbeardLoader(object):
         environments = self._load_environment_files(configuration_directory)
         config['environments'] = environments
 
-        node_templates = self._load_node_template_files(configuration_directory)
+        node_templates = self._load_node_template_files(
+            configuration_directory,
+        )
         config['node_templates'] = node_templates
 
         return config
 
     def _validate_option_agrees(
-        self, relative_path, name, expected_value, config, required=True):
+        self, relative_path, name, expected_value, config, required=True,
+    ):
 
         actual_value = config.get(name)
         if actual_value is None:
@@ -341,7 +360,6 @@ class NeckbeardLoader(object):
                     },
                 )
 
-
         # Check all of the node_templates
         all_node_templates = raw_configuration.get('node_templates', {})
         for aws_type, node_templates in all_node_templates.items():
@@ -385,4 +403,3 @@ class NeckbeardLoader(object):
             return False
 
         return True
-
