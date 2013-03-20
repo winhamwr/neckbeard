@@ -17,6 +17,30 @@ class CircularSeedEnvironmentError(Exception):
     pass
 
 
+class InfiniteEmptyStringDict(object):
+    """
+    An infinitely-nested dictionary where all individual values evaluate to ""
+    when converted to a string.
+    """
+    def __str__(self):
+        return ''
+
+    def __unicode__(self):
+        return ''
+
+    def __len__(self):
+        return 0
+
+    def __getitem__(self, key):
+        return InfiniteEmptyStringDict()
+
+    def __contains__(self, key):
+        return True
+
+    def get(self, key, default=None):
+        return self[key]
+
+
 def mkdir_p(path):
     """
     Borrowed from: http://stackoverflow.com/a/600612/386925
@@ -183,7 +207,6 @@ class ConfigurationManager(object):
         self, environment_name, resource_type, resource_name,
         scaling_index,
     ):
-
         environment = self.environments[environment_name]
         resource_types = environment['aws_nodes'][resource_type]
         node = resource_types[resource_name]
@@ -191,10 +214,15 @@ class ConfigurationManager(object):
         seed_environment_name = self._get_seed_environment_name(
             environment_name,
         )
+        if not seed_environment_name:
+            # If there's no seed environment, you cant have a seed node
+            return InfiniteEmptyStringDict()
 
-        seed = node.get('seed', None)
-        if not seed:
-            return {}
+        # No `seed` config means use the default. An empty or `None` config
+        # means don't use a seed node
+        if 'seed' in node and not node['seed']:
+            return InfiniteEmptyStringDict()
+        seed = node.get('seed', {})
 
         context = {}
         context['resource_type'] = resource_type
@@ -246,15 +274,21 @@ class ConfigurationManager(object):
         )
 
         seed_env = context['seed_environment']
-        seed_env['name'] = self._get_seed_environment_name(
+        seed_env_name = self._get_seed_environment_name(
             environment,
         )
-        seed_env['constants'] = self._get_seed_environment_constants(
-            environment,
-        )
-        seed_env['secrets'] = self._get_seed_environment_secrets(
-            environment,
-        )
+        if not seed_env_name:
+            seed_env['name'] = ''
+            seed_env['constants'] = InfiniteEmptyStringDict()
+            seed_env['secrets'] = InfiniteEmptyStringDict()
+        else:
+            seed_env['name'] = seed_env_name
+            seed_env['constants'] = self._get_seed_environment_constants(
+                environment,
+            )
+            seed_env['secrets'] = self._get_seed_environment_secrets(
+                environment,
+            )
 
         context['node'] = self._get_node_context(
             environment,

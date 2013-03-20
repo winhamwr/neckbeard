@@ -616,9 +616,9 @@ class TestConfigContext(unittest2.TestCase):
         )
 
         # No seed stuff configured
-        self.assertEqual(context['seed_environment']['secrets'], {})
-        self.assertEqual(context['seed_environment']['constants'], {})
-        self.assertEqual(context['seed_node'], {})
+        self.assertEqual(len(context['seed_environment']['secrets']), 0)
+        self.assertEqual(len(context['seed_environment']['constants']), 0)
+        self.assertEqual(len(context['seed_node']), 0)
 
 
 class TestResourceTemplateApplication(unittest2.TestCase):
@@ -986,7 +986,6 @@ class TestConfigExpansion(unittest2.TestCase):
                 },
             },
         }
-        self.maxDiff = None
         # Ensure all of the unique nodes exist
         actual_unique_ids = expanded_configuration['ec2'].keys()
         for unique_id in expected['ec2'].keys():
@@ -1060,6 +1059,47 @@ class TestConfigExpansion(unittest2.TestCase):
                         "bool": False,
                         "none": None,
                     },
+                },
+            },
+        }
+        self.assertEqual(expanded_configuration, expected)
+
+    def test_seeds_references_dont_error(self):
+        # If a node doesn't have a seed environment/node, then no jinja
+        # templates that rely on properties on those should raise errors. All
+        # values will be None
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "unique_id": "web0-{{ node.scaling_index }}",
+                            "env_constant": "{{ seed_environment.constants.foo }}",  # NOQA
+                            "env_secret": "{{ seed_environment.secrets.foo }}",
+                            "env_name": "{{ seed_environment.name }}",
+                            "node_foo": "{{ seed_node.foo }}",
+                        },
+                    },
+                },
+            },
+        }
+        configuration = ConfigurationManager(
+            environments=environments,
+            scaling_backend=MaxScalingBackend(),
+        )
+        expanded_configuration = configuration.expand_configurations('test1')
+        expected = {
+            'ec2': {
+                'web0-0': {
+                    "name": "web0",
+                    "unique_id": "web0-0",
+                    "env_constant": "",
+                    "env_secret": "",
+                    "env_name": "",
+                    "node_foo": "",
                 },
             },
         }
