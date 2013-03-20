@@ -370,7 +370,6 @@ class NeckbeardLoader(object):
                     )
 
     def _validate_configuration(self):
-        # import ipdb; ipdb.set_trace()
         self.validation_errors = {}
         self.raw_configuration = self._load_configuration_files(
             self.configuration_directory,
