@@ -12,10 +12,44 @@ logger = logging.getLogger('cli')
 COMMANDS = ['check']
 
 
-def main():
-    logging.basicConfig(level=logging.INFO)
+class VAction(argparse.Action):
+    """
+    Allow more -v options to increase verbosity while also allowing passing an
+    integer argument to set verbosity.
+    """
+    def __call__(self, parser, args, values, option_string=None):
+        if values is None:
+            values = '1'
 
+        try:
+            verbosity = int(values)
+        except ValueError:
+            # The default is 1, so one -v should be 2
+            verbosity = values.count('v') + 1
+
+        if verbosity > 3:
+            verbosity = 3
+
+        setattr(args, self.dest, verbosity)
+
+VERBOSITY_MAPPING = {
+    0: logging.CRITICAL,
+    1: logging.WARNING,
+    2: logging.INFO,
+    3: logging.DEBUG,
+}
+
+
+def main():
     parser = argparse.ArgumentParser(description='Deploy all the things!')
+    parser.add_argument(
+        '-v',
+        '--verbosity',
+        nargs='?',
+        action=VAction,
+        default=1,
+        dest='verbosity',
+    )
     parser.add_argument(
         'command',
         nargs='?',
@@ -38,7 +72,14 @@ def main():
     )
 
     args = parser.parse_args()
-    return_code = run_commands(**args)
+
+    logging.basicConfig(level=VERBOSITY_MAPPING[args.verbosity])
+
+    return_code = run_commands(
+        args.command,
+        args.environment,
+        args.configuration_directory,
+    )
     exit(return_code)
 
 
