@@ -137,9 +137,9 @@ class NeckbeardLoader(object):
             self._add_validation_error(file_path, 'duplicate_config', extra_context={'filename': name})
 
         if os.path.isfile('%s.json' % file_path):
-            return self._get_json_from_file('%s.json' % file_path)
+            return self._get_data_from_file(file_path, json, 'json')
         elif os.path.isfile('%s.yaml' % file_path):
-            return self._get_yaml_from_file('%s.yaml' % file_path)
+            return self._get_data_from_file(file_path, yaml, 'yaml')
         else:
             self._add_validation_error(
                 file_path,
@@ -147,24 +147,23 @@ class NeckbeardLoader(object):
             )
             return {}
 
-# TODO: refactor this and _get_json_from_file for less repetition
-    def _get_yaml_from_file(self, file_path):
+    def _get_data_from_file(self, extensionless_file_path, parser, file_type):
+        file_path = '%s.%s' % (extensionless_file_path, file_type)
         try:
             with open(file_path, 'r') as fp:
                 try:
-                    # import ipdb; ipdb.set_trace()
-                    return yaml.load(fp)
-                except ScannerError as e:
-                    logger.debug("Error parsing YAML file: %s", file_path)
+                    return parser.load(fp)
+                except (ValueError, ScannerError) as e:
+                    logger.debug("Error parsing %s file: %s", (file_type, file_path,))
                     logger.debug("%s", e)
                     self._add_validation_error(
                         file_path,
-                        'invalid_yaml',
+                        'invalid_%s' % file_type.lower(),
                         extra_context={'error': e},
                     )
                     return {}
         except IOError as e:
-            logger.debug("Error opening YAML file: %s", file_path)
+            logger.debug("Error opening %s file: %s", (file_type, file_path,))
             logger.debug("%s", e)
             self._add_validation_error(
                 file_path,
@@ -172,29 +171,6 @@ class NeckbeardLoader(object):
             )
             return {}
 
-    def _get_json_from_file(self, file_path):
-        try:
-            with open(file_path, 'r') as fp:
-                try:
-                    # import ipdb; ipdb.set_trace()
-                    return json.load(fp)
-                except ValueError as e:
-                    logger.debug("Error parsing JSON file: %s", file_path)
-                    logger.debug("%s", e)
-                    self._add_validation_error(
-                        file_path,
-                        'invalid_json',
-                        extra_context={'error': e},
-                    )
-                    return {}
-        except IOError as e:
-            logger.debug("Error opening JSON file: %s", file_path)
-            logger.debug("%s", e)
-            self._add_validation_error(
-                file_path,
-                'missing_file',
-            )
-            return {}
 
     def _get_name_from_conf_file_path(self, file_path):
         """
