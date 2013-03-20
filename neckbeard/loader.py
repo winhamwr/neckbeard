@@ -82,7 +82,7 @@ class NeckbeardLoader(object):
 
     def _all_config_files(self, directory):
         """
-        Generator to iterate through all the JSON files in a directory.
+        Generator to iterate through all of the JSON and YAML files in a directory.
         """
         for path, dirs, files in os.walk(directory):
             for f in files:
