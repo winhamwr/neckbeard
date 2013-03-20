@@ -1005,6 +1005,66 @@ class TestConfigExpansion(unittest2.TestCase):
                 msg="Config doesn't match for %s" % unique_id,
             )
 
+    def test_config_data_types(self):
+        # Lists, dictionaries, integers, strings, booleans and floats should
+        # all be valid configuration values
+        environments = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'test1': {
+                'name': 'test1',
+                'aws_nodes': {
+                    'ec2': {
+                        'web0': {
+                            "name": "web0",
+                            "unique_id": "web0-{{ node.scaling_index }}",
+                            "service_addons": {
+                                "list": [
+                                    "item1",
+                                    1,
+                                    1.0,
+                                    True,
+                                    None,
+                                ],
+                                "unicode": u'unicode',
+                                "int": 1,
+                                "float": 110.05,
+                                "bool": False,
+                                "none": None,
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        configuration = ConfigurationManager(
+            environments=environments,
+            scaling_backend=MaxScalingBackend(),
+        )
+        expanded_configuration = configuration.expand_configurations('test1')
+        expected = {
+            'ec2': {
+                'web0-0': {
+                    "name": "web0",
+                    "unique_id": "web0-0",
+                    "service_addons": {
+                        "list": [
+                            "item1",
+                            1,
+                            1.0,
+                            True,
+                            None,
+                        ],
+                        "unicode": u'unicode',
+                        "int": 1,
+                        "float": 110.05,
+                        "bool": False,
+                        "none": None,
+                    },
+                },
+            },
+        }
+        self.assertEqual(expanded_configuration, expected)
+
 
 class TestFileDumping(unittest2.TestCase):
     def setUp(self):

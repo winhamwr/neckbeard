@@ -216,8 +216,10 @@ class ConfigurationManager(object):
         context used for generating the configuration. This includes:
             * environment.constants
             * environment.secrets
+            * environment.name
             * seed_environment.constants
             * seed_environment.secrets
+            * seed_environment.name
             * node
               * environment_name
               * seed_environment_name
@@ -235,13 +237,18 @@ class ConfigurationManager(object):
             'environment': {},
             'seed_environment': {},
         }
+        context['environment']['name'] = environment
         context['environment']['constants'] = self._get_environment_constants(
             environment,
         )
         context['environment']['secrets'] = self._get_environment_secrets(
             environment,
         )
+
         seed_env = context['seed_environment']
+        seed_env['name'] = self._get_seed_environment_name(
+            environment,
+        )
         seed_env['constants'] = self._get_seed_environment_constants(
             environment,
         )
@@ -293,6 +300,8 @@ class ConfigurationManager(object):
 
     def _evaluate_configuration(self, config_context, resource_configuration):
         def evaluate_templates(config, context):
+            if config is None:
+                return None
             if isinstance(config, basestring):
                 # TODO: Add validation here to catch the exception for
                 # undefined
@@ -309,8 +318,8 @@ class ConfigurationManager(object):
                 for key, value in config.iteritems():
                     result[key] = evaluate_templates(value, context)
             else:
-                for index, item in config.enumerate():
-                    result[key] = evaluate_templates(item, context)
+                for index, item in enumerate(config):
+                    result[index] = evaluate_templates(item, context)
 
             return result
 
@@ -387,20 +396,3 @@ class ConfigurationManager(object):
 
                 with open(resource_file, 'w') as fp:
                     json.dump(resource_config, fp)
-
-
-class CloudResourceConfiguration(object):
-    """
-    `CloudResourceConfiguration` is responsible for turning an individual
-    resource configuration from an environment, applying any `node_templates`,
-    and applying the configuration context to all configuration values. The end
-    result is an expanded configuration for its specific `CloudResource`.
-    """
-    def __init__(self, node_config, node_templates, config_context):
-        pass
-
-    def is_valid(self):
-        pass
-
-    def get_expanded_configurations(self):
-        pass
