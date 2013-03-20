@@ -117,10 +117,10 @@ class TestFileLoading(FileLoadingHelper):
 
         validation_errors = self._get_validation_errors(
             loader,
-            'environments/beta.json',
+            'environments/beta',
             'duplicate_config',
         )
-        self.assertEqual(len(validation_errors), 1)
+        self.assertEqual(len(validation_errors), 2)
 
 class TestJsonLoading(FileLoadingHelper):
 

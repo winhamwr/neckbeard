@@ -87,17 +87,8 @@ class NeckbeardLoader(object):
         for path, dirs, files in os.walk(directory):
             for f in files:
                 full_fp = os.path.join(path, f)
-                # TODO: clean up - dont check for duplicates here?
                 extensionless_fp = full_fp[:-5]
-                if f.endswith('.json'):
-                    name, _ = f.rsplit('.json', 1)
-                    if ('%s.yaml' % name) in files:
-                        self._add_validation_error(full_fp, 'duplicate_config', extra_context={'filename': f})
-                    yield extensionless_fp
-                elif f.endswith('.yaml'):
-                    name, _ = f.rsplit('.yaml', 1)
-                    if ('%s.json' % name) in files:
-                        self._add_validation_error(full_fp, 'duplicate_config', extra_context={'filename': f})
+                if f.endswith('.json') or f.endswith('.yaml'):
                     yield extensionless_fp
 
 
@@ -131,7 +122,6 @@ class NeckbeardLoader(object):
                     logger.warning("    %s", error)
 
     def _get_config_from_file(self, file_path):
-        # TODO: remove validation error from _all_config_files
         if os.path.isfile('%s.json' % file_path) and os.path.isfile('%s.yaml' % file_path):
             _, name = os.path.split(file_path)
             self._add_validation_error(file_path, 'duplicate_config', extra_context={'filename': name})
