@@ -1,0 +1,6 @@
+{
+	"name": "production",
+	"neckbeard_conf_version": "0.1",
+	"required_redundancy": {},
+	"aws_nodes": {}
+}

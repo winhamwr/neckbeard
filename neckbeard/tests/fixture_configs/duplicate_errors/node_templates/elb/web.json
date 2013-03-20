@@ -1,0 +1,9 @@
+{
+	"node_aws_type": "elb",
+	"node_template_name": "web",
+	"neckbeard_conf_version": "0.1",
+	"defaults": {},
+	"required_overrides": {}
+}
+
+

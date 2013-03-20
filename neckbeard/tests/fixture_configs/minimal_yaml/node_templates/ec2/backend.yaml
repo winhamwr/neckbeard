@@ -1,0 +1,5 @@
+defaults: {}
+neckbeard_conf_version: '0.1'
+node_aws_type: ec2
+node_template_name: backend
+required_overrides: {}
