@@ -6,13 +6,17 @@ import os.path
 
 from neckbeard.loader import NeckbeardLoader
 from neckbeard.configuration import ConfigurationManager
+from neckbeard.output import configure_logging
 
 logger = logging.getLogger('cli')
 
-COMMANDS = ['check']
+COMMANDS = [
+    'check',
+    'up',
+]
 
 
-class VAction(argparse.Action):
+class VerboseAction(argparse.Action):
     """
     Allow more -v options to increase verbosity while also allowing passing an
     integer argument to set verbosity.
@@ -46,7 +50,7 @@ def main():
         '-v',
         '--verbosity',
         nargs='?',
-        action=VAction,
+        action=VerboseAction,
         default=1,
         dest='verbosity',
     )
@@ -73,7 +77,7 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=VERBOSITY_MAPPING[args.verbosity])
+    configure_logging(level=VERBOSITY_MAPPING[args.verbosity])
 
     return_code = run_commands(
         args.command,
@@ -101,20 +105,33 @@ def run_commands(command, environment, configuration_directory):
             configuration,
         )
         return 0
+    elif command == 'up':
+        do_up(
+            configuration_directory,
+            environment,
+            configuration,
+        )
+        return 0
 
 
 def do_configuration_check(
     configuration_directory, environment_name, configuration,
 ):
-    print "Configuration for %s checks out A-ok!" % environment_name
+    logger.info("Configuration for %s checks out A-ok!", environment_name)
     output_dir = os.path.join(
         configuration_directory, '.expanded_config', environment_name,
     )
-    print "You can see the deets on your nodes in: %s" % output_dir
+    logger.info("You can see the deets on your nodes in: %s", output_dir)
     configuration.dump_environment_configuration(
         environment_name,
         output_dir,
     )
+
+
+def do_up(
+    configuration_directory, environment_name, configuration,
+):
+    logger.info("Running up on environment: %s", environment_name)
 
 
 def _get_and_test_loader(configuration_directory):
@@ -139,5 +156,4 @@ def _get_and_test_configuration(loader):
 
 # This idiom means the below code only runs when executed from command line
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     main()
