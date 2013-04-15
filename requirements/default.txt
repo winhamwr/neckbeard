@@ -2,3 +2,4 @@ PyYAML==3.10
 boto>=2.0
 argparse>=1.2
 jinja2==2.6
+Fabric
