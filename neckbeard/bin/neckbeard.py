@@ -4,6 +4,7 @@ import argparse
 import logging
 import os.path
 
+from neckbeard.actions import view
 from neckbeard.loader import NeckbeardLoader
 from neckbeard.configuration import ConfigurationManager
 from neckbeard.output import configure_logging
@@ -105,8 +106,8 @@ def run_commands(command, environment, configuration_directory):
             configuration,
         )
         return 0
-    elif command == 'up':
-        do_up(
+    elif command == 'view':
+        do_view(
             configuration_directory,
             environment,
             configuration,
@@ -128,10 +129,11 @@ def do_configuration_check(
     )
 
 
-def do_up(
+def do_view(
     configuration_directory, environment_name, configuration,
 ):
     logger.info("Running up on environment: %s", environment_name)
+    view(environment_name, configuration)
 
 
 def _get_and_test_loader(configuration_directory):
