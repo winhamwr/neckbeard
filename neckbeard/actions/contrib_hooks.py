@@ -1,6 +1,86 @@
+"""
+This module contains optional integrations with common 3rd-party services for
+monitoring, alerting, notifications, etc. Right now, it's just a big blob of
+things in this file and functions that must be directly included in action
+commands. In the future, these will live in a proper contrib module here as
+plugins which will be optional loaded based on your configuration. Until the
+Plugin/Hook system is built, these things will just exist in their ugly format
+and will try to fail gracefully if you don't have them configured.
+"""
+import httplib
+import urllib
+import json
+import logging
+from datetime import datetime, timedelta
 
+import requests
+from fabric.api import env, local
+from decorator import contextmanager
+from requests.exceptions import RequestException
+
+from neckbeard.actions.utils import get_deployer, _get_gen_target
+
+git = None
+try:
+    import git
+except ImportError:
+    # Git is only required for certain commands
+    pass
+
+try:
+    import pynotify
+    DT_NOTIFY = True
+except ImportError:
+    DT_NOTIFY = False
+
+logger = logging.getLogger('actions.contrib_hooks')
+
+GITHUB_COMPARE_URL = 'https://github.com/PolicyStat/PolicyStat/compare/%s'
+NEWRELIC_API_HTTP_HOST = 'rpm.newrelic.com'
+NEWRELIC_API_HTTP_URL = '/deployments.xml'
+PAGERDUTY_SCHEDULE_URL = 'https://%(project_subdomain)s.pagerduty.com/api/v1/schedules/%(schedule_key)s/overrides'  # noqa
+HIPCHAT_MSG_API_ENDPOINT = "https://api.hipchat.com/v1/rooms/message"
+
+UP_START_MSG = (
+    '%(deployer)s <strong>Deploying</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s '
+    'From: <strong>%(git_branch)s</strong>'
+)
+UP_END_MSG = (
+    '%(deployer)s <strong>Deployed</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s '
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
+REPAIR_START_MSG = (
+    '%(deployer)s <strong>Repairing</strong> '
+    '<em>%(deployment_name)s</em>'
+)
+REPAIR_END_MSG = (
+    '%(deployer)s <strong>Repaired</strong> '
+    '<em>%(deployment_name)s</em>'
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
+INCREMENT_START_MSG = (
+    '%(deployer)s <strong>Incrementing</strong> '
+    '<em>%(deployment_name)s</em>'
+)
+INCREMENT_END_MSG = (
+    '%(deployer)s <strong>Incremented</strong> '
+    '<em>%(deployment_name)s</em>'
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
+TERMINATE_START_MSG = (
+    '%(deployer)s <strong>Terminating</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s'
+)
+TERMINATE_END_MSG = (
+    '%(deployer)s <strong>Terminated</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s'
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
 
 ## Helpers for sending HipChat messages during deployment
+
 
 @contextmanager
 def notifies_hipchat(start_msg, end_msg):
@@ -251,8 +331,11 @@ def _send_deployment_end_newrelic():
 
         # Attempt to post the deployment to newrelic
         conn = httplib.HTTPSConnection(NEWRELIC_API_HTTP_HOST)
-        conn.request(NEWRELIC_API_HTTP_METHOD, NEWRELIC_API_HTTP_URL,
-            urllib.urlencode(params), headers,
+        conn.request(
+            NEWRELIC_API_HTTP_METHOD,
+            NEWRELIC_API_HTTP_URL,
+            urllib.urlencode(params),
+            headers,
         )
         response = conn.getresponse()
         if response.status != 201:
