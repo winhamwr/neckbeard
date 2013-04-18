@@ -1,3 +1,14 @@
+import logging
+
+from fabric.api import task, require
+
+from neckbeard.actions.contrib_hooks import (
+    _get_git_repo,
+    _announce_deployment,
+)
+
+logger = logging.getLogger('actions.announce')
+
 
 @task
 def announce():
@@ -9,4 +20,3 @@ def announce():
     _get_git_repo()
 
     _announce_deployment()
-
