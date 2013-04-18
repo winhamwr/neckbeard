@@ -1,5 +1,19 @@
+import logging
+
+from fabric.api import env, task, require
+
+from neckbeard.actions.utils import _get_gen_target
+from neckbeard.environment_manager import Deployment
+
+logger = logging.getLogger('actions.view')
+
+
 @task
 def view():
+    """
+    The view task output status information about all of the cloud resources
+    associated with a specific generation of a specific deployment.
+    """
     require('_deployment_name')
     require('_deployment_confs')
 
@@ -66,4 +80,3 @@ def view():
     else:
         for node in rds_nodes:
             print "%s" % node.get_status_output()
-
