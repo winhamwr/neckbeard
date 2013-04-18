@@ -1,3 +1,11 @@
+import logging
+
+from fabric.api import env, task, require
+
+from neckbeard.environment_manager import Deployment
+
+logger = logging.getLogger('actions.run')
+
 
 @task
 def run():
