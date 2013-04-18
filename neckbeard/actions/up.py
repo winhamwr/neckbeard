@@ -42,12 +42,12 @@ UP_END_MSG = (
 logger = logging.getLogger('actions.view')
 time_logger = logging.getLogger('timer')
 
-deploy_timers = {}
+timer = {}
 
 
 @task
 @notifies_hipchat(start_msg=UP_START_MSG, end_msg=UP_END_MSG)
-@logs_duration(output_result=True)
+@logs_duration(timer, output_result=True)
 def up(force='n'):
     """
     Make sure that the instances for the specified generation are running and
@@ -58,7 +58,7 @@ def up(force='n'):
     require('_deployment_confs')
     require('_active_gen')
 
-    with logs_duration(timer_name='validation'):
+    with logs_duration(timer, timer_name='validation'):
         repo = _get_git_repo()
 
         # Force submodules to be updated
@@ -84,7 +84,7 @@ def up(force='n'):
             force = True
 
     logger.info("Gathering deployment state")
-    with logs_duration(timer_name='gather deployment state'):
+    with logs_duration(timer, timer_name='gather deployment state'):
         deployment = Deployment(
             env._deployment_name,
             env._deployment_confs['ec2'],
@@ -119,7 +119,7 @@ def up(force='n'):
     # Gather all of the configurations for each node, including their
     # seed deployment information
     logger.info("Gathering node configuration and status")
-    with logs_duration(timer_name='gather node status'):
+    with logs_duration(timer, timer_name='gather node status'):
         for aws_type, node_confs in dep_confs:
             for node_name, conf in node_confs:
                 # Get the seed deployment new instances will be copied from
@@ -161,7 +161,7 @@ def up(force='n'):
     rds_deployers = []
     # Build all of the deployment objects
     logger.info("Building Node deployers")
-    with logs_duration(timer_name='build deployers'):
+    with logs_duration(timer, timer_name='build deployers'):
         for nd in node_deploys:
             if nd.aws_type == 'ec2':
                 conf_dict = env._deployment_confs['ec2'][nd.node_name]
@@ -199,7 +199,7 @@ def up(force='n'):
                 rds_deployers.append(deployer)
 
     # Provision the RDS nodes
-    with logs_duration(timer_name='initial provision'):
+    with logs_duration(timer, timer_name='initial provision'):
         logger.info("Provisioning RDS nodes")
         for deployer in rds_deployers:
             if deployer.seed_verification and deployer.get_node() is None:
@@ -221,7 +221,7 @@ def up(force='n'):
 
     # Configure the RDS nodes
     logger.info("Configuring RDS nodes")
-    with logs_duration(timer_name='deploy rds'):
+    with logs_duration(timer, timer_name='deploy rds'):
         for deployer in rds_deployers:
             deployer.run()
 
@@ -232,7 +232,7 @@ def up(force='n'):
     logger.info("Deploying to EC2 nodes")
     for env_confs, deployer in ec2_deployers:
         timer_name = '%s deploy' % deployer.node_name
-        with logs_duration(timer_name='full %s' % timer_name):
+        with logs_duration(timer, timer_name='full %s' % timer_name):
             node = deployer.get_node()
 
             # Prepare the environment for deployment
@@ -247,7 +247,11 @@ def up(force='n'):
             ):
 
                 pre_deploy_time = datetime.now()
-                with logs_duration(timer_name=timer_name, output_result=True):
+                with logs_duration(
+                    timer,
+                    timer_name=timer_name,
+                    output_result=True,
+                ):
                     deployer.run()
             if DT_NOTIFY:
                 _send_deployment_done_desktop_notification(
@@ -257,7 +261,7 @@ def up(force='n'):
 
     time_logger.info("Timing Breakdown:")
     sorted_timers = sorted(
-        deploy_timers.items(),
+        timer.items(),
         key=lambda x: x[1],
         reverse=True,
     )

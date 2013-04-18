@@ -1,3 +1,13 @@
+import logging
+import os.environ
+from datetime import datetime
+
+from decorator import contextmanager
+from fabric.api import env, prompt
+
+logger = logging.getLogger('actions.utils')
+time_logger = logging.getLogger('timer')
+
 
 def _get_gen_target():
     generation_target = ''
@@ -23,8 +33,6 @@ def get_deployer():
     )
 
 
-
-
 @contextmanager
 def prompt_on_exception(msg):
     try:
@@ -48,7 +56,7 @@ def prompt_on_exception(msg):
 
 
 @contextmanager
-def logs_duration(timer_name='Total', output_result=False):
+def logs_duration(deploy_timers, timer_name='Total', output_result=False):
     """
     A decorator to output the duration of the function after completion.
     """
@@ -60,5 +68,3 @@ def logs_duration(timer_name='Total', output_result=False):
         deploy_timers[timer_name] = duration.seconds
         if output_result:
             time_logger.info("%02ds- %s", duration.seconds, timer_name)
-
-
