@@ -5,12 +5,14 @@ import boto
 from neckbeard.terminal_colors import format_color, BLUE, GREEN, DARK_GRAY, RED
 
 fab_out_opts = {
+    logging.NOTSET: [],
     logging.DEBUG: [],
     logging.INFO: ['running', 'stdout'],
     logging.WARN: ['running', 'stdout'],
     logging.CRITICAL: ['running', 'stdout', 'warnings']
 }
 fab_quiet_opts = {
+    logging.NOTSET: [],
     logging.DEBUG: [],
     logging.INFO: ['running', 'stdout', 'stderr', 'warnings'],
     logging.WARN: ['running', 'stdout', 'stderr', 'warnings'],

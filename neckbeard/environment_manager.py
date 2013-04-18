@@ -1,26 +1,15 @@
-
 import logging
 import time
 from copy import copy
 from datetime import datetime
 
-import boto.exception
-import dateutil.parser
-import requests
 from boto import ec2, rds
-from boto.ec2 import elb
-from fabric.api import env, require, sudo, hide
-from requests.exceptions import ConnectionError, Timeout, RequestException
+from fabric.api import env, require
 from simpledb.simpledb import SimpleDB
 
-from neckbeard.infrastructure_node import InfrastructureNode
-from neckbeard.output import fab_out_opts
+from neckbeard.cloud_resource import InfrastructureNode
 
-logger = logging.getLogger('deployment')
-logger.setLevel(logging.INFO)
-
-fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
-fab_quiet = fab_output_hides + ['stderr']
+logger = logging.getLogger('environment_manager')
 
 WAIT_TIME = 10
 MAKE_OPERATIONAL_TIMEOUT = 4 * 60  # 4 minutes
@@ -248,7 +237,8 @@ class Deployment(object):
             is_active=False)
 
     def set_node(
-        self, aws_type, node_name, generation_id, boto_object, is_active):
+        self, aws_type, node_name, generation_id, boto_object, is_active,
+    ):
 
         aws_id = boto_object.id
 
@@ -425,7 +415,8 @@ class Deployment(object):
         return True
 
     def repair_active_generation(
-        self, force_operational=False, wait_until_operational=True):
+        self, force_operational=False, wait_until_operational=True,
+    ):
         """
         Ensure that all healthy active-generation nodes are operational.
 
@@ -552,5 +543,3 @@ class Deployment(object):
         logger.info("Generation succesfully incremented.")
         logger.info("Making nodes operational")
         self.repair_active_generation()
-
-

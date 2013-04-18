@@ -1,5 +1,5 @@
 import logging
-import os.environ
+import os
 from datetime import datetime
 
 from decorator import contextmanager

@@ -1,4 +1,16 @@
+import logging
+import time
 
+import boto.exception
+import dateutil.parser
+import requests
+from boto.ec2 import elb
+from fabric.api import env, sudo, hide
+from requests.exceptions import (
+    ConnectionError,
+    Timeout,
+    RequestException,
+)
 from simpledb import models
 from simpledb.simpledb import SimpleDB
 
@@ -8,11 +20,11 @@ NODE_AWS_TYPES = ['ec2', 'rds', 'elb']
 EC2_RETIRED_STATES = ['shutting-down', 'terminated']
 RDS_RETIRED_STATES = ['deleted']
 
-logger = logging.getLogger('node')
-logger.setLevel(logging.INFO)
+logger = logging.getLogger('cloud_resource')
 
 fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
+
 
 class InfrastructureNode(models.Model):
     nodename = models.ItemName()

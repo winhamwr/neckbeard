@@ -13,7 +13,7 @@ logger = logging.getLogger('cli')
 
 COMMANDS = [
     'check',
-    'up',
+    'view',
 ]
 
 

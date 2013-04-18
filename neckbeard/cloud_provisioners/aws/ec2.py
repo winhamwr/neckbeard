@@ -16,27 +16,29 @@ from boto import ec2
 from fabric.api import sudo, env, require, put, hide, run
 from fabric.contrib.files import upload_template
 
-from pstat.pstat_deploy import fab_out_opts
-from pstat.pstat_deploy.deployers.base import BaseNodeDeployment
-from pstat.pstat_deploy.provisioners.pstat.app import LOG_DIR
+from neckbeard.output import fab_out_opts
+from neckbeard.cloud_provisioners import BaseNodeDeployment
 
+LOG_DIR = '/var/log/pstat'
 AWS_METADATA_SERVICE = 'http://169.254.169.254/latest/meta-data/'
 LAUNCH_REFRESH = 15  # seconds to wait before re-checking ec2 statuses
 
-logger = logging.getLogger('deploy:ec2')
-logger.setLevel(logging.INFO)
+logger = logging.getLogger('aws.ec2')
 
 fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
 
-EC2_FSTAB_TPL = ("""
-# /etc/fstab: static file system information.
-# <device_name>  <mount_point>  <fs_type>  <options>  <dump_freq>  <pass_num>
-{% for entry in fstab_entries %}
-{{ entry.device_name}} {{ entry.mount_point}} {{ entry.fs_type }} """
-""" {{ entry.options }} {{ entry.dump_freq}} {{ entry.pass_num}}
-{% endfor %}
-"""
+EC2_FSTAB_TPL = (
+    """
+    # /etc/fstab: static file system information.
+    # <device>  <mount_point>  <fs_type>  <options>  <dump_freq>  <pass_num>
+    {% for entry in fstab_entries -%}
+    """
+    "{{ entry.device_name}} {{ entry.mount_point}} {{ entry.fs_type }} "
+    "{{ entry.options }} {{ entry.dump_freq}} {{ entry.pass_num}}"
+    """
+    """
+    "{%- endfor %}"
 )
 fstabEntry = namedtuple(
     'fstabEntry',
@@ -818,7 +820,8 @@ def create_and_attach_ebs_vols(
     availability_zone,
     instance_id,
     vol_confs,
-    seed_ebs_snapshots):
+    seed_ebs_snapshots,
+):
     """
     Attach EBS volumes corresponding to the given volume configurations.
 
@@ -885,7 +888,8 @@ def create_and_attach_ebs_vols(
 
 
 def create_and_attach_ebs_vol(
-    ec2conn, availability_zone, instance_id, seed_snapshot_id, size, device):
+    ec2conn, availability_zone, instance_id, seed_snapshot_id, size, device,
+):
     """
     Create and attach a volume to an instance, while tolerating some common ec2
     errors.

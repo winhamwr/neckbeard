@@ -6,15 +6,12 @@ import logging
 import time
 import urllib
 import re
-from multiprocessing import Process
 
 import dateutil.parser
 from dateutil.tz import tzlocal
-from django.core.management import setup_environ
 from fabric.api import prompt
 
 from boto import rds
-from boto.exception import BotoServerError
 
 from pstat.pstat_deploy.deployers.base import BaseNodeDeployment
 from pstat.pstat_deploy.targets import VERSION as PSTAT_VERSION
@@ -23,7 +20,6 @@ from pstat.pstat_deploy.targets import DB_PARAMETER_GROUPS
 LAUNCH_REFRESH = 15  # Seconds to wait before refreshing RDS checks
 
 logger = logging.getLogger('deploy:rds')
-logger.setLevel(logging.INFO)
 
 MAX_RESTORABLE_LAG = timedelta(minutes=15)
 IP_SERVICE_URL = 'http://checkip.dyndns.com'
@@ -76,95 +72,11 @@ class RdsNodeDeployment(BaseNodeDeployment):
 
         return self._local_ip
 
-    def make_maintenance_announcement(self, retries_remaining=3):
-        """
-        Connect to the database and make a maintenance announcement so that we
-        can check that the announcement carries through.
-        """
-        seed_instance = self.seed_node.boto_instance
-        # First need to authorize this ip to connect to the DB
-        security_group = seed_instance.security_group
-        ip = self.get_ip()
-        cidr = "%s/32" % ip
-        try:
-            security_group.authorize(cidr_ip=cidr)
-        except BotoServerError:
-            # Authorization might already exist
-            pass
-
-        # Using multiprocess to avoid Django database-switching madness
-        import pstat.settings as settings
-        process_kwargs = {
-            'settings': settings,
-            'seed_instance': seed_instance,
-            'seed_master_password': self.seed_master_password,
-        }
-        make_announcement_p = Process(
-            target=make_announcement, kwargs=process_kwargs)
-        make_announcement_p.start()
-        make_announcement_p.join()
-
-        if make_announcement_p.exitcode != 0:
-            if retries_remaining > 0:
-                logger.warning("Error setting announcement")
-                logger.warning("%s retries remaining", retries_remaining)
-                return self.make_maintenance_announcement(
-                    retries_remaining=retries_remaining - 1)
-            else:
-                logger.critical("Error setting announcement")
-                logger.critical("All retries exhausted. Failing.")
-                exit(1)
-
-        # Now remove the authorization for this ip
-        security_group.revoke(cidr_ip=cidr)
-
     def verify_seed_data(self, node, retries_remaining=3):
         """
-        Ensure that the maintenance announcement exists and remove it.
+        Ensure that the seed data you received is correct.
         """
-        rds_instance = node.boto_instance
-        conf = self.deployment.deployment_confs['rds'][self.node_name]['conf']
-
-        # First need to authorize this ip to connect to the DB
-        security_group = rds_instance.security_group
-        ip = self.get_ip()
-        cidr = "%s/32" % ip
-        try:
-            security_group.authorize(cidr_ip=cidr)
-        except BotoServerError:
-            # Authorization might already exist
-            logger.warning("BotoServerError attempting to authorize IP")
-
-        # Using multiprocess to avoid Django database-switching madness
-        import pstat.settings as settings
-        process_kwargs = {
-            'settings': settings,
-            'rds_instance': rds_instance,
-            'master_password': conf['rds_master_password'],
-        }
-        verify_announcement_p = Process(
-            target=verify_announcement, kwargs=process_kwargs)
-        verify_announcement_p.start()
-        verify_announcement_p.join()
-
-        if verify_announcement_p.exitcode != 0:
-            if retries_remaining > 0:
-                logger.warning("Error verifying announcement")
-                logger.warning("%s retries remaining", retries_remaining)
-                return self.verify_seed_data(
-                    node, retries_remaining=retries_remaining - 1)
-            else:
-                logger.critical("Error verifying announcement")
-                logger.critical("All retries exhausted. Failing.")
-                exit(1)
-
-        # Now remove the authorization for this ip
-        try:
-            security_group.revoke(cidr_ip=cidr)
-        except BotoServerError:
-            # If this goes quickly, authorization might be in the authoring
-            # state
-            pass
+        pass
 
     def get_seed_data(self):
         """
@@ -172,7 +84,7 @@ class RdsNodeDeployment(BaseNodeDeployment):
         otherwise allow the user to create a snapshot to restore from.
         """
         if self.seed_node and self.seed_verification:
-            self.make_maintenance_announcement()
+            # TODO: Hook to do maintenance announcements, etc
             self._create_snapshot()
             return
 
@@ -202,8 +114,11 @@ class RdsNodeDeployment(BaseNodeDeployment):
         instance = self.seed_node.boto_instance
         now = datetime.now()
         nowstr = now.strftime('%Y%m%d-%H%M%S')
-        label = '%s-%sseed%s' % \
-              (self.deployment.deployment_name, self.node_name, nowstr)
+        label = '%s-%sseed%s' % (
+            self.deployment.deployment_name,
+            self.node_name,
+            nowstr,
+        )
         restoration_snapshot = instance.snapshot(label)
         self.seed_snapshot_id = restoration_snapshot.id
 
@@ -217,8 +132,9 @@ class RdsNodeDeployment(BaseNodeDeployment):
         # Parse the time from the ISO 8601 string
         latest_restorable_time = dateutil.parser.parse(latest_restorable_time)
 
-        restoration_lag = datetime.now(tzlocal()) \
-                        - latest_restorable_time
+        restoration_lag = datetime.now(
+            tzlocal()
+        ) - latest_restorable_time
 
         return restoration_lag
 
@@ -480,72 +396,3 @@ class RdsNodeDeployment(BaseNodeDeployment):
             param.apply(immediate=True)
 
 
-def make_announcement(settings, seed_instance, seed_master_password):
-    # Connect to the database and add the announcement
-    settings.DATABASES['default']['ENGINE'] = 'django.db.backends.mysql'
-    host, port = seed_instance.endpoint
-    settings.DATABASES['default']['HOST'] = host
-    settings.DATABASES['default']['PORT'] = port
-    settings.DATABASES['default']['USER'] = seed_instance.master_username
-    settings.DATABASES['default']['PASSWORD'] = seed_master_password
-    settings.DATABASES['default']['NAME'] = 'policystat'
-    setup_environ(settings)
-
-    # pylint: disable=W0404
-    from announcements.models import Announcement
-    from django.contrib.auth.models import User
-    # pylint: enable=W0404
-    if Announcement.objects.count() == 0:
-        admin = User.objects.filter(is_superuser=True).order_by('pk')[0]
-        Announcement.objects.create(
-            title="Maintenance In Progress",
-            content=(
-                "Policy approvals, comments, edits and other changes will "
-                "NOT persist until maintenance is complete"
-            ),
-            creator=admin,
-            site_wide=True)
-
-    count = Announcement.objects.all().count()
-    if count != 1:
-        exit(1)
-    exit(0)
-
-
-def verify_announcement(settings, rds_instance, master_password):
-    # Connect to the database and add the announcement
-    settings.DATABASES['default']['ENGINE'] = 'django.db.backends.mysql'
-    host, port = rds_instance.endpoint
-    settings.DATABASES['default']['HOST'] = host
-    settings.DATABASES['default']['PORT'] = port
-    settings.DATABASES['default']['USER'] = rds_instance.master_username
-    settings.DATABASES['default']['PASSWORD'] = master_password
-    settings.DATABASES['default']['NAME'] = 'policystat'
-    setup_environ(settings)
-
-    # Keeping the import inside this function because it's meant for
-    # multiprocessing
-    # pylint: disable=W0404
-    from announcements.models import Announcement
-    from MySQLdb import OperationalError
-    from django.db import connection
-    # pylint: enable=W0404
-    try:
-        if Announcement.objects.count() == 0:
-            logger.critical("No Announcements in new DB")
-            exit(1)
-    except OperationalError, e:
-        logger.warning(
-            "Error connecting to the MySql database to verify the "
-            "announcement. Waiting 30 seconds and retrying")
-        logger.warning("Error Was: %s", e)
-        # Reset the database connection
-        connection.connection.close()
-        connection.connection = None
-        time.sleep(30)
-        if Announcement.objects.count() == 0:
-            logger.critical("No Announcements in new DB")
-            exit(1)
-    Announcement.objects.all().delete()
-
-    exit(0)
