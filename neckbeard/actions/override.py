@@ -1,3 +1,13 @@
+import logging
+
+from fabric.api import env, task, require, prompt
+
+from neckbeard.actions.utils import _get_gen_target
+from neckbeard.cloud_resource import InfrastructureNode
+from neckbeard.environment_manager import Deployment
+
+logger = logging.getLogger('actions.override')
+
 
 @task
 def override():

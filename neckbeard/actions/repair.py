@@ -5,8 +5,6 @@ from fabric.api import env, task, require
 from neckbeard.actions.contrib_hooks import notifies_hipchat
 from neckbeard.environment_manager import Deployment
 
-logger = logging.getLogger('actions.repair')
-
 REPAIR_START_MSG = (
     '%(deployer)s <strong>Repairing</strong> '
     '<em>%(deployment_name)s</em>'
@@ -16,6 +14,8 @@ REPAIR_END_MSG = (
     '<em>%(deployment_name)s</em>'
     "<br />Took: <strong>%(duration)s</strong>s"
 )
+
+logger = logging.getLogger('actions.repair')
 
 
 @task
