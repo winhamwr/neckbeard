@@ -41,16 +41,6 @@ NEWRELIC_API_HTTP_URL = '/deployments.xml'
 PAGERDUTY_SCHEDULE_URL = 'https://%(project_subdomain)s.pagerduty.com/api/v1/schedules/%(schedule_key)s/overrides'  # noqa
 HIPCHAT_MSG_API_ENDPOINT = "https://api.hipchat.com/v1/rooms/message"
 
-UP_START_MSG = (
-    '%(deployer)s <strong>Deploying</strong> '
-    '<em>%(deployment_name)s</em> %(generation)s '
-    'From: <strong>%(git_branch)s</strong>'
-)
-UP_END_MSG = (
-    '%(deployer)s <strong>Deployed</strong> '
-    '<em>%(deployment_name)s</em> %(generation)s '
-    "<br />Took: <strong>%(duration)s</strong>s"
-)
 REPAIR_START_MSG = (
     '%(deployer)s <strong>Repairing</strong> '
     '<em>%(deployment_name)s</em>'
@@ -67,15 +57,6 @@ INCREMENT_START_MSG = (
 INCREMENT_END_MSG = (
     '%(deployer)s <strong>Incremented</strong> '
     '<em>%(deployment_name)s</em>'
-    "<br />Took: <strong>%(duration)s</strong>s"
-)
-TERMINATE_START_MSG = (
-    '%(deployer)s <strong>Terminating</strong> '
-    '<em>%(deployment_name)s</em> %(generation)s'
-)
-TERMINATE_END_MSG = (
-    '%(deployer)s <strong>Terminated</strong> '
-    '<em>%(deployment_name)s</em> %(generation)s'
     "<br />Took: <strong>%(duration)s</strong>s"
 )
 

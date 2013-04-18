@@ -1,3 +1,25 @@
+import logging
+
+from fabric.api import env, task, require, prompt
+
+from neckbeard.actions.contrib_hooks import (
+    notifies_hipchat,
+)
+from neckbeard.actions.utils import _get_gen_target
+from neckbeard.environment_manager import Deployment
+
+TERMINATE_START_MSG = (
+    '%(deployer)s <strong>Terminating</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s'
+)
+TERMINATE_END_MSG = (
+    '%(deployer)s <strong>Terminated</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s'
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
+
+logger = logging.getLogger('actions.terminate')
+
 
 @task
 @notifies_hipchat(start_msg=TERMINATE_START_MSG, end_msg=TERMINATE_END_MSG)
@@ -72,4 +94,3 @@ def terminate(soft=None):
             node.newrelic_disable()
         else:
             node.terminate()
-
