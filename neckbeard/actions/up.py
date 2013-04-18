@@ -1,3 +1,49 @@
+import copy
+import logging
+import time
+from collections import namedtuple
+from datetime import datetime
+
+from decorator import contextmanager
+from fabric.api import env, task, require, prompt
+
+from neckbeard.actions.contrib_hooks import (
+    notifies_hipchat,
+    _get_git_repo,
+    _is_unchanged_from_head,
+    _is_tagged_version,
+    _push_tags,
+    _take_temporary_pagerduty,
+    DT_NOTIFY,
+    _send_deployment_done_desktop_notification,
+    _announce_deployment,
+)
+from neckbeard.actions.utils import (
+    logs_duration,
+    prompt_on_exception,
+)
+from neckbeard.environment_manager import Deployment
+from neckbeard.cloud_provisioners.aws import (
+    Ec2NodeDeployment,
+    RdsNodeDeployment,
+)
+
+UP_START_MSG = (
+    '%(deployer)s <strong>Deploying</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s '
+    'From: <strong>%(git_branch)s</strong>'
+)
+UP_END_MSG = (
+    '%(deployer)s <strong>Deployed</strong> '
+    '<em>%(deployment_name)s</em> %(generation)s '
+    "<br />Took: <strong>%(duration)s</strong>s"
+)
+
+logger = logging.getLogger('actions.view')
+time_logger = logging.getLogger('timer')
+
+deploy_timers = {}
+
 
 @task
 @notifies_hipchat(start_msg=UP_START_MSG, end_msg=UP_END_MSG)
@@ -197,7 +243,8 @@ def up(force='n'):
                 node,
                 deployer.deployment,
                 force_seamless=env._active_gen,
-                force_operational=force):
+                force_operational=force,
+            ):
 
                 pre_deploy_time = datetime.now()
                 with logs_duration(timer_name=timer_name, output_result=True):
@@ -248,6 +295,7 @@ def _order_ec2_deployers_by_priority(ec2_deployers):
                 io_unhealthy.append(ec2_deployer)
 
     return io_healthy + io_unhealthy + o_unhealthy + o_healthy
+
 
 @contextmanager
 def seamless_modification(
@@ -400,5 +448,3 @@ def _prompt_for_seed_verification(deployer):
             deployer.seed_deployment,
             deployer.seed_node_name)
         exit(1)
-
-
