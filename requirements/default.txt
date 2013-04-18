@@ -2,4 +2,8 @@ PyYAML==3.10
 boto>=2.0
 argparse>=1.2
 jinja2==2.6
-Fabric
+Fabric>=1.4
+requests>=0.14
+decorator>=3.4
+python-dateutil
+git+git://github.com/winhamwr/python-simpledb.git@76bcff3#egg=simpledb
