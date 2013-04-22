@@ -338,6 +338,7 @@ def _disable_newrelic_monitoring(node):
                 "Node not running. No need to disable newrelic monitoring",
             )
             return
+        # Ewwwwww. Bad
         env.user = 'ubuntu'
         env.host_string = node.boto_instance.public_dns_name
         sudo('update-rc.d newrelic-sysmond disable')

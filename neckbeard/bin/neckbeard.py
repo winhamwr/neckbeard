@@ -133,7 +133,10 @@ def do_view(
     configuration_directory, environment_name, configuration,
 ):
     logger.info("Running up on environment: %s", environment_name)
-    view(environment_name, configuration)
+    view(
+        environment_name,
+        configuration.expand_configurations(environment_name),
+    )
 
 
 def _get_and_test_loader(configuration_directory):

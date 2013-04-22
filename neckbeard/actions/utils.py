@@ -8,6 +8,11 @@ from fabric.api import env, prompt
 logger = logging.getLogger('actions.utils')
 time_logger = logging.getLogger('timer')
 
+PENDING = 'PENDING'
+ACTIVE = 'ACTIVE'
+OLD = 'OLD'
+GENERATION_STATES = [PENDING, ACTIVE, OLD]
+
 
 def _get_gen_target():
     generation_target = ''

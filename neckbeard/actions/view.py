@@ -1,30 +1,28 @@
 import logging
 
-from fabric.api import env, task, require
+from fabric.api import env
 
-from neckbeard.actions.utils import _get_gen_target
+from neckbeard.actions.utils import _get_gen_target, ACTIVE
 from neckbeard.environment_manager import Deployment
 
 logger = logging.getLogger('actions.view')
 
 
-@task
-def view():
+def view(environment_name, configuration, generation=ACTIVE):
     """
     The view task output status information about all of the cloud resources
     associated with a specific generation of a specific deployment.
     """
-    require('_deployment_name')
-    require('_deployment_confs')
-
+    # Hard-coding everything to work on active for now
+    env._active_gen = True
     generation_target = _get_gen_target()
 
     logger.info("Gathering deployment status")
     deployment = Deployment(
-        env._deployment_name,
-        env._deployment_confs['ec2'],
-        env._deployment_confs['rds'],
-        env._deployment_confs['elb'],
+        environment_name,
+        configuration.get('ec2', {}),
+        configuration.get('rds', {}),
+        configuration.get('elb', {}),
     )
     deployment.verify_deployment_state()
 
