@@ -4,6 +4,7 @@ from fabric.api import env, task, require, prompt
 
 from neckbeard.actions.contrib_hooks import (
     notifies_hipchat,
+    _disable_newrelic_monitoring,
 )
 from neckbeard.actions.utils import _get_gen_target
 from neckbeard.environment_manager import Deployment
@@ -89,8 +90,6 @@ def terminate(soft=None):
     for node in running_nodes:
         node.make_fully_inoperative()
         if soft_terminate:
-            # If we're doing a soft terminate, disable newrelic monitoring
-            # A hard terminate takes the instance down completely
-            node.newrelic_disable()
+            _disable_newrelic_monitoring(node)
         else:
             node.terminate()

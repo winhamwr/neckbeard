@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timedelta
 
 import requests
-from fabric.api import env, local
+from fabric.api import env, local, sudo
 from decorator import contextmanager
 from requests.exceptions import RequestException
 
@@ -321,6 +321,37 @@ def _send_deployment_end_newrelic():
         response = conn.getresponse()
         if response.status != 201:
             logger.warn('Failed to post deployment to newrelic')
+
+
+def _disable_newrelic_monitoring(node):
+    # TODO: We absolutely shouldn't be SSHing in to instances with deploy
+    # process hooks. That is the exclusive domain of brain_wrinkles. They
+    # should have a `soft_terminate` hook available where they can do
+    # per-resource cleanup things like this
+    if not env.get('is_newrelic_monitored', False):
+        return
+
+    if node.aws_type == 'ec2':
+        logger.info('Disabling newrelic agent monitoring')
+        if not node.is_actually_running():
+            logger.info(
+                "Node not running. No need to disable newrelic monitoring",
+            )
+            return
+        env.user = 'ubuntu'
+        env.host_string = node.boto_instance.public_dns_name
+        sudo('update-rc.d newrelic-sysmond disable')
+        sudo('/etc/init.d/newrelic-sysmond stop')
+        confs = [
+            '/etc/supervisor/conf.d/uwsgi.conf',
+            '/etc/supervisor/conf.d/celeryd.conf',
+        ]
+        sudo(
+            'sed -i "s/,NEW_RELIC_ENVIRONMENT=.*$//" %s' % (
+                ' '.join(confs),
+            )
+        )
+        sudo('supervisorctl update')
 
 
 # Helpers for popping Desktop notifications on deployment events

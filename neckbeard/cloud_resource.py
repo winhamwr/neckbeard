@@ -5,7 +5,6 @@ import boto.exception
 import dateutil.parser
 import requests
 from boto.ec2 import elb
-from fabric.api import env, sudo, hide
 from requests.exceptions import (
     ConnectionError,
     Timeout,
@@ -159,32 +158,6 @@ class InfrastructureNode(models.Model):
             self._remove_from_loadbalancer()
         elif self.aws_type == 'rds':
             pass
-
-    def newrelic_disable(self):
-        if self.aws_type == 'ec2':
-            logger.info('Disabling newrelic agent monitoring')
-            if not self.is_actually_running():
-                logger.info(
-                    "Node not running. No need to disable newrelic monitoring",
-                )
-                return
-            env.user = 'ubuntu'
-            env.hosts = [self.boto_instance.public_dns_name]
-            env.host_string = self.boto_instance.public_dns_name
-            env.host = self.boto_instance.public_dns_name
-            with hide(*fab_quiet):
-                sudo('update-rc.d newrelic-sysmond disable')
-                sudo('/etc/init.d/newrelic-sysmond stop')
-                confs = [
-                    '/etc/supervisor/conf.d/uwsgi.conf',
-                    '/etc/supervisor/conf.d/celeryd.conf',
-                ]
-                sudo(
-                    'sed -i "s/,NEW_RELIC_ENVIRONMENT=.*$//" %s' % (
-                        ' '.join(confs),
-                    )
-                )
-                sudo('supervisorctl update')
 
     def _remove_from_loadbalancer(self):
         """
