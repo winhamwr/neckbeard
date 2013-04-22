@@ -1,28 +1,32 @@
 """
 Deployment configuration for the RDS database node.
 """
-from datetime import datetime, timedelta
 import logging
+import re
 import time
 import urllib
-import re
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 import dateutil.parser
+from boto import rds
 from dateutil.tz import tzlocal
 from fabric.api import prompt
 
-from boto import rds
-
-from pstat.pstat_deploy.deployers.base import BaseNodeDeployment
-from pstat.pstat_deploy.targets import VERSION as PSTAT_VERSION
-from pstat.pstat_deploy.targets import DB_PARAMETER_GROUPS
+from neckbeard.cloud_provisioners import BaseNodeDeployment
 
 LAUNCH_REFRESH = 15  # Seconds to wait before refreshing RDS checks
 
-logger = logging.getLogger('deploy:rds')
+logger = logging.getLogger('aws:rds')
 
 MAX_RESTORABLE_LAG = timedelta(minutes=15)
 IP_SERVICE_URL = 'http://checkip.dyndns.com'
+
+# TODO: Make this a hook to get your app's version
+DEPLOYED_APP_VERSION = "1.0"
+# TODO: Pull this from the configuration. It contains customer parameters for
+# the parameter group
+DB_PARAMETER_GROUPS = defaultdict(dict)
 
 
 class RdsNodeDeployment(BaseNodeDeployment):
@@ -144,7 +148,7 @@ class RdsNodeDeployment(BaseNodeDeployment):
         """
         # Start up and connect to the Amazon RDS instance
         rds_label = str(self.deployment.get_new_rds_label(
-            self.node_name, PSTAT_VERSION))
+            self.node_name, DEPLOYED_APP_VERSION))
 
         rds_instance = self.launch(rds_label)
 
@@ -175,8 +179,10 @@ class RdsNodeDeployment(BaseNodeDeployment):
 
         if self.seed_snapshot_id:
             logger.info(
-                "Creating RDS instance: %s from snapshot: %s" % \
-                (rds_label, self.seed_snapshot_id))
+                "Creating RDS instance: %s from snapshot: %s",
+                rds_label,
+                self.seed_snapshot_id,
+            )
 
             # Wait for the snapshot to complete
             snapshot = self.deployment.rdsconn.get_all_dbsnapshots(
@@ -204,13 +210,14 @@ class RdsNodeDeployment(BaseNodeDeployment):
                     seed_instance.id)
 
                 # Create using rdsconn.restore_db_instance_from_dbsnapshot
-                db_instance = self.deployment.rdsconn\
-                            .restore_dbinstance_from_point_in_time(
+                rdsconn = self.deployment.rdsconn
+                db_instance = rdsconn.restore_dbinstance_from_point_in_time(
                     source_instance_id=seed_instance.id,
                     target_instance_id=rds_label,
                     use_latest=True,
                     dbinstance_class=conf['rds_instance_class'],
-                    availability_zone=conf['rds_availability_zone'])
+                    availability_zone=conf['rds_availability_zone'],
+                )
 
             else:
                 # Creating a new, blank, DB
@@ -341,9 +348,12 @@ class RdsNodeDeployment(BaseNodeDeployment):
         diff_params = []
         for checked_param in checked_params:
             rds_param = checked_param.replace('rds_', '')
-            defined_val = str(conf[checked_param]).lower().strip()
-            actual_val = str(getattr(node.boto_instance, rds_param))\
-                       .lower().strip()
+            defined_val = str(
+                conf[checked_param]
+            ).lower().strip()
+            actual_val = str(
+                getattr(node.boto_instance, rds_param)
+            ).lower().strip()
             if defined_val != actual_val:
                 diff_params.append(checked_param)
 
@@ -351,8 +361,9 @@ class RdsNodeDeployment(BaseNodeDeployment):
             for diff_param in diff_params:
                 rds_param = diff_param.replace('rds_', '')
                 defined_val = str(conf[diff_param]).lower().strip()
-                actual_val = str(getattr(node.boto_instance, rds_param))\
-                           .lower().strip()
+                actual_val = str(
+                    getattr(node.boto_instance, rds_param)
+                ).lower().strip()
                 logger.info(
                     "param %s defined: %s actual: %s",
                     diff_param,
@@ -394,5 +405,3 @@ class RdsNodeDeployment(BaseNodeDeployment):
             param._value = value
             param.apply_type = 'immediate'
             param.apply(immediate=True)
-
-

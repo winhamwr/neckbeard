@@ -7,17 +7,15 @@ import ConfigParser
 import logging
 import os.path
 import time
-
 from collections import namedtuple, defaultdict
 from tempfile import NamedTemporaryFile
 
 from boto import ec2
-
 from fabric.api import sudo, env, require, put, hide, run
 from fabric.contrib.files import upload_template
 
-from neckbeard.output import fab_out_opts
 from neckbeard.cloud_provisioners import BaseNodeDeployment
+from neckbeard.output import fab_out_opts
 
 LOG_DIR = '/var/log/pstat'
 AWS_METADATA_SERVICE = 'http://169.254.169.254/latest/meta-data/'
