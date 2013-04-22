@@ -12,7 +12,6 @@ from requests.exceptions import (
     RequestException,
 )
 from simpledb import models
-from simpledb.simpledb import SimpleDB
 
 from neckbeard.output import fab_out_opts
 
@@ -24,11 +23,6 @@ logger = logging.getLogger('cloud_resource')
 
 fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
-
-
-# TODO: This should be pulled from the Resource Tracker Backend's (or
-# whatever we end up calling it) configuration
-RESOURCE_TRACKER_BACKEND_S3_DOMAIN = 'pstat-neckbeard-infrastructure'
 
 
 class InfrastructureNode(models.Model):
@@ -53,11 +47,6 @@ class InfrastructureNode(models.Model):
     # shortcut towards some speed improvements. We only need to do EBS volume
     # mounting on the first run, for example.
     initial_deploy_complete = models.NumberField(default=0, required=True)
-
-    class Meta:
-        connection = SimpleDB(
-            env.coordinator_aws_key, env.coordinator_aws_secret)
-        domain = RESOURCE_TRACKER_BACKEND_S3_DOMAIN
 
     def __init__(self, *args, **kwargs):
         self.ec2conn = None
