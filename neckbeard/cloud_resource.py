@@ -26,6 +26,11 @@ fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
 
 
+# TODO: This should be pulled from the Resource Tracker Backend's (or
+# whatever we end up calling it) configuration
+RESOURCE_TRACKER_BACKEND_S3_DOMAIN = 'pstat-neckbeard-infrastructure'
+
+
 class InfrastructureNode(models.Model):
     nodename = models.ItemName()
     generation_id = models.NumberField(required=True)
@@ -52,7 +57,7 @@ class InfrastructureNode(models.Model):
     class Meta:
         connection = SimpleDB(
             env.coordinator_aws_key, env.coordinator_aws_secret)
-        domain = 'pstat-infrastructure'
+        domain = RESOURCE_TRACKER_BACKEND_S3_DOMAIN
 
     def __init__(self, *args, **kwargs):
         self.ec2conn = None

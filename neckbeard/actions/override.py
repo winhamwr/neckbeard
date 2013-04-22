@@ -3,7 +3,6 @@ import logging
 from fabric.api import env, task, require, prompt
 
 from neckbeard.actions.utils import _get_gen_target
-from neckbeard.cloud_resource import InfrastructureNode
 from neckbeard.environment_manager import Deployment
 
 logger = logging.getLogger('actions.override')
@@ -99,9 +98,7 @@ def _override_node(node, deployment, aws_type, node_name):
     aws_id = prompt(
         "Enter the %s id for <%s>-%s:" % (aws_type, aws_type, node_name))
     if not node:
-        node = InfrastructureNode()
-        node.set_aws_conns(deployment.ec2conn, deployment.rdsconn)
-        node.aws_type = aws_type
+        node = deployment.get_blank_node(aws_type)
 
     node.aws_id = aws_id
 

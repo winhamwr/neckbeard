@@ -135,6 +135,13 @@ class Deployment(object):
         self._pending_gen_id = 1
         return self._pending_gen_id
 
+    def get_blank_node(self, aws_type):
+        node = InfrastructureNode()
+        node.set_aws_conns(self.ec2conn, self.rdsconn)
+        node.aws_type = aws_type
+
+        return node
+
     def get_active_node(self, aws_type, node_name):
         if self.active_gen_id:
             return self.get_node(
@@ -250,7 +257,7 @@ class Deployment(object):
         if len(matching_nodes) == 1:
             node = matching_nodes[0]
         else:
-            node = InfrastructureNode()
+            node = self.get_blank_node(aws_type)
 
         node.generation_id = generation_id
         node.deployment_name = self.deployment_name
@@ -320,8 +327,7 @@ class Deployment(object):
             for node_name, node_confs in confs.items():
                 node = self.get_active_node(aws_type, node_name)
                 if not node:
-                    mock_node = InfrastructureNode()
-                    mock_node.aws_type = aws_type
+                    mock_node = self.get_blank_node(aws_type)
                     mock_node.name = node_name
                     inoperational.append(mock_node)
                     logger.info("Missing node: %s-%s" % (aws_type, node_name))
@@ -348,8 +354,7 @@ class Deployment(object):
             for node_name, node_confs in confs.items():
                 node = self.get_active_node(aws_type, node_name)
                 if not node:
-                    mock_node = InfrastructureNode()
-                    mock_node.aws_type = aws_type
+                    mock_node = self.get_blank_node(aws_type)
                     mock_node.name = node_name
                     unhealthy.append(mock_node)
                     logger.info("Missing node: %s-%s" % (aws_type, node_name))
@@ -377,8 +382,7 @@ class Deployment(object):
             for node_name, node_confs in confs.items():
                 node = self.get_pending_node(aws_type, node_name)
                 if not node:
-                    mock_node = InfrastructureNode()
-                    mock_node.aws_type = aws_type
+                    mock_node = self.get_blank_node(aws_type)
                     mock_node.name = node_name
                     unhealthy.append(mock_node)
                     logger.info("Missing node: %s-%s" % (aws_type, node_name))
