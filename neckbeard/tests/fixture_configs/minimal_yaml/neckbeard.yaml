@@ -1,0 +1,8 @@
+resource_tracker:
+  backend:
+    path: "neckbeard.resource_tracker.SimpleDBResourceTracker"
+    domain: "neckbeard-resource-tracker"
+    aws_access_key_id: "{{ secrets.resource_tracker.backend.aws_access_key_id }}"
+    aws_secret_access_key: "{{ secrets.resource_tracker.backend.aws_secret_access_key }}"
+neckbeard_conf_version: '0.1'
+

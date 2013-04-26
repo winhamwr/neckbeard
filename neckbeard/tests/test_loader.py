@@ -94,6 +94,12 @@ class TestFileLoading(FileLoadingHelper):
         self.assertEqual(len(validation_errors), 1)
         validation_errors = self._get_validation_errors(
             loader,
+            'neckbeard',
+            'missing_file',
+        )
+        self.assertEqual(len(validation_errors), 1)
+        validation_errors = self._get_validation_errors(
+            loader,
             'secrets',
             'missing_file',
         )
@@ -135,6 +141,12 @@ class TestJsonLoading(FileLoadingHelper):
         # each type of file
         self.assertEqual(
             loader.raw_configuration['constants'].get(
+                'neckbeard_conf_version',
+            ),
+            '0.1',
+        )
+        self.assertEqual(
+            loader.raw_configuration['neckbeard'].get(
                 'neckbeard_conf_version',
             ),
             '0.1',
@@ -195,6 +207,12 @@ class TestYamlLoading(FileLoadingHelper):
         # each type of file
         self.assertEqual(
             loader.raw_configuration['constants'].get(
+                'neckbeard_conf_version',
+            ),
+            '0.1',
+        )
+        self.assertEqual(
+            loader.raw_configuration['neckbeard'].get(
                 'neckbeard_conf_version',
             ),
             '0.1',
@@ -504,6 +522,7 @@ class TestValidation(FileLoadingHelper):
 
         raw_configuration = {
             'constants': {},
+            'neckbeard': {},
             'secrets': {},
             'secrets.tpl': {},
             'environments': {
@@ -529,12 +548,15 @@ class TestValidation(FileLoadingHelper):
         )
         self.assertEqual(len(validation_errors), 1)
 
-        expected_error_count = 3 + 2 + 3  # Root + environments + templates
+        expected_error_count = 4 + 2 + 3  # Root + environments + templates
         self.assertEqual(len(loader.validation_errors), expected_error_count)
 
         # Now let's try the "everything is kosher" case
         correct_configuration = {
             'constants': {
+                'neckbeard_conf_version': '0.1',
+            },
+            'neckbeard': {
                 'neckbeard_conf_version': '0.1',
             },
             'secrets': {
