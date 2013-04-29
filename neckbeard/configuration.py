@@ -54,7 +54,7 @@ def mkdir_p(path):
 
 class ConfigurationManager(object):
     """
-    ConfigurationManager accepts the already-parsed JSON configuration
+    ConfigurationManager accepts the already-parsed configuration
     (probably from ``NeckbeardLoader``) and creates an expanded configuration
     for each individual `CloudResource` in an environment. It:
         * Validates the configuration for required options and internal
@@ -81,6 +81,7 @@ class ConfigurationManager(object):
         scaling_backend,
         environments,
         constants=None,
+        neckbeard_configuration=None,
         secrets=None,
         secrets_tpl=None,
         node_templates=None,
@@ -89,6 +90,7 @@ class ConfigurationManager(object):
         self.environments = environments
 
         self.constants = constants or {}
+        self.neckbeard_configuration = neckbeard_configuration or {}
         self.secrets = secrets or {}
         self.secrets_tpl = secrets_tpl or {}
         self.node_templates = node_templates or {}
@@ -106,6 +108,7 @@ class ConfigurationManager(object):
             environments=raw_config['environments'],
             scaling_backend=MinScalingBackend(),
             constants=raw_config.get('constants', {}),
+            neckbeard_configuration=raw_config.get('neckbeard', {}),
             secrets=raw_config.get('secrets', {}),
             secrets_tpl=raw_config.get('secrets_tpl', {}),
             node_templates=raw_config.get('node_templates', {}),
