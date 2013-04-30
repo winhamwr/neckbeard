@@ -1117,7 +1117,7 @@ class TestConfigExpansion(unittest2.TestCase):
         # Integration test for creating the full Neckbeard meta configuration
         secrets = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
-            'neckbeard': {
+            'neckbeard_meta': {
                 'resource_tracker': {
                     'backend': {
                         'foo': 'secret',
@@ -1127,13 +1127,13 @@ class TestConfigExpansion(unittest2.TestCase):
         }
         constants = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
-            'neckbeard': {
+            'neckbeard_meta': {
                 'resource_tracker': {
                     'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
                 },
             },
         }
-        neckbeard = {
+        neckbeard_meta = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'resource_tracker': {
                 'backend_path': "{{ constants.resource_tracker.backend_path }}",  # NOQA
@@ -1148,10 +1148,10 @@ class TestConfigExpansion(unittest2.TestCase):
             environments={},
             constants=constants,
             secrets=secrets,
-            neckbeard_configuration=neckbeard,
+            neckbeard_meta=neckbeard_meta,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.get_neckbeard_configuration()
+        expanded_configuration = configuration.get_meta_configuration()
         expected = {
             'resource_tracker': {
                 'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
