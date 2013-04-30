@@ -621,7 +621,9 @@ class TestConfigContext(unittest2.TestCase):
         self.assertEqual(len(context['seed_node']), 0)
 
 
-class TestResourceTemplateApplication(unittest2.TestCase):
+class TestNodeTemplateApplication(unittest2.TestCase):
+    # TODO: Call this TestResourceTemplateApplication once node templates are
+    # renamed
 
     def test_no_template(self):
         # Nodes without a template still work
@@ -801,8 +803,8 @@ class TestResourceTemplateApplication(unittest2.TestCase):
 
 
 class TestConfigExpansion(unittest2.TestCase):
-    def test_vanilla(self):
-        # Integration test for full config parsing
+    def test_environment_configuration(self):
+        # Integration test for full environment configuration parsing
         secrets = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'environments': {
@@ -1106,6 +1108,56 @@ class TestConfigExpansion(unittest2.TestCase):
                     "env_secret": "",
                     "env_name": "",
                     "node_foo": "",
+                },
+            },
+        }
+        self.assertEqual(expanded_configuration, expected)
+
+    def test_neckbeard_configuration(self):
+        # Integration test for creating the full Neckbeard meta configuration
+        secrets = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'neckbeard': {
+                'resource_tracker': {
+                    'backend': {
+                        'foo': 'secret',
+                    },
+                },
+            },
+        }
+        constants = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'neckbeard': {
+                'resource_tracker': {
+                    'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                },
+            },
+        }
+        neckbeard = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'resource_tracker': {
+                'backend_path': "{{ constants.resource_tracker.backend_path }}",  # NOQA
+                'backend': {
+                    "hard_coded": "hard_coded",
+                    "secret": "{{ secrets.resource_tracker.backend.foo }}",
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            environments={},
+            constants=constants,
+            secrets=secrets,
+            neckbeard_configuration=neckbeard,
+            scaling_backend=MaxScalingBackend(),
+        )
+        expanded_configuration = configuration.get_neckbeard_configuration()
+        expected = {
+            'resource_tracker': {
+                'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                'backend': {
+                    "hard_coded": "hard_coded",
+                    "secret": "secret",
                 },
             },
         }

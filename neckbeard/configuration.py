@@ -8,6 +8,7 @@ import shutil
 from collections import Mapping
 from copy import deepcopy
 
+from neckbeard.loader import NeckbeardLoader
 from neckbeard.scaling import MinScalingBackend  # TODO: Don't hardcode this
 
 logger = logging.getLogger('configuration')
@@ -50,6 +51,57 @@ def mkdir_p(path):
     except OSError as exc:  # Python >2.5
         if exc.errno != errno.EEXIST or not os.path.isdir(path):
             raise
+
+
+def evaluate_configuration_templates(configuration, context):
+    """
+    For the given `configuration` (a nested dictionary), walk the dictionary,
+    evaluating all template usage. The result is a dictionary with the same
+    structure as the `resource_configuration`, but with rendered template
+    values.
+
+    Only string values are evaluated and the template is evaluated with the
+    given `context`.
+    """
+    if configuration is None:
+        return None
+    if isinstance(configuration, basestring):
+        # TODO: Add validation here to catch the exception for
+        # undefined
+        env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+        template = env.from_string(configuration)
+        try:
+            return template.render(context)
+        except jinja2.UndefinedError:
+            logger.warning("Error evaluating the template: %s", configuration)
+            logger.warning("Context didn't contain a referenced variable")
+            raise
+        except jinja2.TemplateSyntaxError:
+            logger.warning(
+                "You have a Jinja2 syntax error in a configuration template",
+            )
+            raise
+
+    constant_types = [bool, int, float]
+    for constant_type in constant_types:
+        if isinstance(configuration, constant_type):
+            return configuration
+
+    evaluated_config = deepcopy(configuration)
+    if isinstance(configuration, Mapping):
+        for key, value in configuration.iteritems():
+            evaluated_config[key] = evaluate_configuration_templates(
+                configuration=value,
+                context=context,
+            )
+    else:
+        for index, item in enumerate(configuration):
+            evaluated_config[index] = evaluate_configuration_templates(
+                configuration=item,
+                context=context,
+            )
+
+    return evaluated_config
 
 
 class ConfigurationManager(object):
@@ -313,6 +365,20 @@ class ConfigurationManager(object):
         )
         return context
 
+    def _get_neckbeard_config_context(self):
+        """
+        Get the context needed to evaluate Neckbeard meta configuration
+        templates. This includes:
+
+            * constants
+            * secrets
+        """
+        context = {}
+        context['constants'] = self.constants.get('neckbeard', {})
+        context['secrets'] = self.secrets.get('neckbeard', {})
+
+        return context
+
     def _apply_node_template(self, resource_type, resource_configuration):
         """
         If the given `resource_configuration` defines a `node_template_name`,
@@ -349,45 +415,6 @@ class ConfigurationManager(object):
             node_template['defaults'],
             resource_configuration,
         )
-
-    def _evaluate_configuration_templates(
-        self, config_context, resource_configuration,
-    ):
-        """
-        For the given `resource_configuration`, evaluate all of the template
-        usage in the nested configuration values with the given
-        `config_context`. The result is a dictionary with the same structure as
-        the `resource_configuration`, but with rendered template values.
-        """
-        def evaluate_templates(config, context):
-            if config is None:
-                return None
-            if isinstance(config, basestring):
-                # TODO: Add validation here to catch the exception for
-                # undefined
-                env = jinja2.Environment(undefined=jinja2.StrictUndefined)
-                template = env.from_string(config)
-                return template.render(context)
-            constant_types = [bool, int, float]
-            for constant_type in constant_types:
-                if isinstance(config, constant_type):
-                    return config
-
-            result = deepcopy(config)
-            if isinstance(config, Mapping):
-                for key, value in config.iteritems():
-                    result[key] = evaluate_templates(value, context)
-            else:
-                for index, item in enumerate(config):
-                    result[index] = evaluate_templates(item, context)
-
-            return result
-
-        evaluated_template = evaluate_templates(
-            resource_configuration,
-            config_context,
-        )
-        return (evaluated_template['unique_id'], evaluated_template)
 
     def get_environment_configuration(self, environment_name):
         """
@@ -436,35 +463,37 @@ class ConfigurationManager(object):
                         resource_name,
                         scaling_index=index,
                     )
-                    result = self._evaluate_configuration_templates(
-                        config_context,
-                        expanded_configuration,
+                    evaluated_conf = evaluate_configuration_templates(
+                        configuration=expanded_configuration,
+                        context=config_context,
                     )
-                    unique_id, evaluated_resource_conf = result
+                    unique_id = evaluated_conf['unique_id']
 
                     # TODO: Detect duplicate unique ids
-                    resource_conf[unique_id] = evaluated_resource_conf
+                    resource_conf[unique_id] = evaluated_conf
 
         return expanded_conf
 
     def get_neckbeard_configuration(self):
-        raise NotImplementedError()
-        #config_context = self._get_config_context_for_resource(
-        #    environment_name,
-        #    resource_type,
-        #    resource_name,
-        #    scaling_index=index,
-        #)
-        #result = self._evaluate_configuration_templates(
-        #    config_context,
-        #    expanded_configuration,
-        #)
-        #unique_id, evaluated_resource_conf = result
+        """
+        Returns the Neckbeard "meta" configuration responsible for tweaking
+        Neckbeard-specific functionality (like choice of ResourceTracker).
 
-        ## TODO: Detect duplicate unique ids
-        #resource_conf[unique_id] = evaluated_resource_conf
+        This mostly just means evaluating the templates in configuration values
+        with the appropriate secrets/constants.
+        """
+        config_context = self._get_neckbeard_config_context()
 
-        #return expanded_conf
+        evaluated_config = evaluate_configuration_templates(
+            configuration=self.neckbeard_configuration,
+            context=config_context,
+        )
+
+        # Remove the version. That's only for the Loader and
+        # ConfigurationManager's use
+        evaluated_config.pop(NeckbeardLoader.VERSION_OPTION)
+
+        return evaluated_config
 
     def dump_environment_configuration(
         self, environment_name, output_directory,
