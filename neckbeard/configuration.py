@@ -53,7 +53,7 @@ def mkdir_p(path):
             raise
 
 
-def evaluate_configuration_templates(configuration, context):
+def evaluate_configuration_templates(configuration, context, debug_trace=''):
     """
     For the given `configuration` (a nested dictionary), walk the dictionary,
     evaluating all template usage. The result is a dictionary with the same
@@ -73,13 +73,19 @@ def evaluate_configuration_templates(configuration, context):
         try:
             return template.render(context)
         except jinja2.UndefinedError:
-            logger.warning("Error evaluating the template: %s", configuration)
+            logger.warning(
+                "Error evaluating the template for: %s",
+                debug_trace,
+            )
+            logger.warning("Template: %s", configuration)
             logger.warning("Context didn't contain a referenced variable")
             raise
         except jinja2.TemplateSyntaxError:
             logger.warning(
-                "You have a Jinja2 syntax error in a configuration template",
+                "Jinja2 syntax error in the configuration template: %s",
+                debug_trace,
             )
+            logger.warning("Template: %s", configuration)
             raise
 
     constant_types = [bool, int, float]
@@ -93,12 +99,14 @@ def evaluate_configuration_templates(configuration, context):
             evaluated_config[key] = evaluate_configuration_templates(
                 configuration=value,
                 context=context,
+                debug_trace="%s.%s" % (debug_trace, key),
             )
     else:
         for index, item in enumerate(configuration):
             evaluated_config[index] = evaluate_configuration_templates(
                 configuration=item,
                 context=context,
+                debug_trace="%s.%s" % (debug_trace, index),
             )
 
     return evaluated_config
