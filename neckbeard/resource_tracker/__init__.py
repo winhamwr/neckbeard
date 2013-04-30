@@ -4,7 +4,7 @@ def build_tracker_from_config(configuration_manager):
     Use the `neckbeard` configuration from the given manager to instantiate the
     proper `ResourceTracker` class.
     """
-    neckbeard_config = configuration_manager.get_neckbeard_configuration()
+    neckbeard_config = configuration_manager.get_neckbeard_meta_config()
 
     tracker_config = neckbeard_config['resource_tracker']
     backend_path = tracker_config['backend_path']

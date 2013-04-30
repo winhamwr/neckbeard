@@ -124,7 +124,7 @@ def do_configuration_check(
         configuration_directory, '.expanded_config', environment_name,
     )
     logger.info("You can see the deets on your nodes in: %s", output_dir)
-    configuration.dump_environment_configuration(
+    configuration.dump_environment_config(
         environment_name,
         output_dir,
     )
@@ -136,7 +136,7 @@ def do_view(
     logger.info("Running up on environment: %s", environment_name)
     view(
         environment_name=environment_name,
-        configuration=configuration.get_environment_configuration(
+        configuration=configuration.get_environment_config(
             environment_name,
         ),
         resource_tracker=build_tracker_from_config(configuration),

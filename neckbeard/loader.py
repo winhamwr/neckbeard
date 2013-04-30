@@ -56,7 +56,7 @@ class NeckbeardLoader(object):
     }
     CONFIG_STRUCTURE = {
         "constants": None,
-        "neckbeard": None,
+        "neckbeard_meta": None,
         "secrets": None,
         "secrets.tpl": None,
         "environments": {},
@@ -68,7 +68,7 @@ class NeckbeardLoader(object):
     }
     ROOT_CONF_FILES = [
         'constants',
-        'neckbeard',
+        'neckbeard_meta',
         'secrets',
         'secrets.tpl',
     ]

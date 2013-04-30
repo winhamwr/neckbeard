@@ -912,7 +912,7 @@ class TestConfigExpansion(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.get_environment_configuration(
+        expanded_configuration = configuration.get_environment_config(
             'test1',
         )
         expected = {
@@ -1043,7 +1043,7 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.get_environment_configuration(
+        expanded_configuration = configuration.get_environment_config(
             'test1',
         )
         expected = {
@@ -1096,7 +1096,7 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.get_environment_configuration(
+        expanded_configuration = configuration.get_environment_config(
             'test1',
         )
         expected = {
@@ -1151,7 +1151,7 @@ class TestConfigExpansion(unittest2.TestCase):
             neckbeard_meta=neckbeard_meta,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.get_meta_configuration()
+        expanded_configuration = configuration.get_neckbeard_meta_config()
         expected = {
             'resource_tracker': {
                 'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
@@ -1205,7 +1205,7 @@ class TestFileDumping(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
         output_dir = path.join(self.tmp_dir, 'test1')
-        configuration.dump_environment_configuration(
+        configuration.dump_environment_config(
             'test1',
             output_dir,
         )

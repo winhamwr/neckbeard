@@ -141,7 +141,7 @@ class ConfigurationManager(object):
         scaling_backend,
         environments,
         constants=None,
-        neckbeard_configuration=None,
+        neckbeard_meta=None,
         secrets=None,
         secrets_tpl=None,
         node_templates=None,
@@ -150,7 +150,7 @@ class ConfigurationManager(object):
         self.environments = environments
 
         self.constants = constants or {}
-        self.neckbeard_configuration = neckbeard_configuration or {}
+        self.neckbeard_meta = neckbeard_meta or {}
         self.secrets = secrets or {}
         self.secrets_tpl = secrets_tpl or {}
         self.node_templates = node_templates or {}
@@ -168,7 +168,7 @@ class ConfigurationManager(object):
             environments=raw_config['environments'],
             scaling_backend=MinScalingBackend(),
             constants=raw_config.get('constants', {}),
-            neckbeard_configuration=raw_config.get('neckbeard', {}),
+            neckbeard_meta=raw_config.get('neckbeard_meta', {}),
             secrets=raw_config.get('secrets', {}),
             secrets_tpl=raw_config.get('secrets_tpl', {}),
             node_templates=raw_config.get('node_templates', {}),
@@ -382,8 +382,8 @@ class ConfigurationManager(object):
             * secrets
         """
         context = {}
-        context['constants'] = self.constants.get('neckbeard', {})
-        context['secrets'] = self.secrets.get('neckbeard', {})
+        context['constants'] = self.constants.get('neckbeard_meta', {})
+        context['secrets'] = self.secrets.get('neckbeard_meta', {})
 
         return context
 
@@ -424,7 +424,7 @@ class ConfigurationManager(object):
             resource_configuration,
         )
 
-    def get_environment_configuration(self, environment_name):
+    def get_environment_config(self, environment_name):
         """
         Get the fully-evaluated configuration for the given `environment_name`.
 
@@ -482,7 +482,7 @@ class ConfigurationManager(object):
 
         return expanded_conf
 
-    def get_neckbeard_configuration(self):
+    def get_neckbeard_meta_config(self):
         """
         Returns the Neckbeard "meta" configuration responsible for tweaking
         Neckbeard-specific functionality (like choice of ResourceTracker).
@@ -493,7 +493,7 @@ class ConfigurationManager(object):
         config_context = self._get_neckbeard_config_context()
 
         evaluated_config = evaluate_configuration_templates(
-            configuration=self.neckbeard_configuration,
+            configuration=self.neckbeard_meta,
             context=config_context,
         )
 
@@ -503,10 +503,10 @@ class ConfigurationManager(object):
 
         return evaluated_config
 
-    def dump_environment_configuration(
+    def dump_environment_config(
         self, environment_name, output_directory,
     ):
-        expanded_configuration = self.get_environment_configuration(
+        expanded_configuration = self.get_environment_config(
             environment_name,
         )
 
