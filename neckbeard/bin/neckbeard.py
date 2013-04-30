@@ -136,7 +136,9 @@ def do_view(
     logger.info("Running up on environment: %s", environment_name)
     view(
         environment=environment_name,
-        configuration=configuration.expand_configurations(environment_name),
+        configuration=configuration.get_environment_configuration(
+            environment_name,
+        ),
         resource_tracker=build_tracker_from_config(configuration),
     )
 

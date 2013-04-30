@@ -282,7 +282,7 @@ class TestConfigContext(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
 
-        node_context = configuration._get_node_context(
+        node_context = configuration._get_resource_context(
             'test1', 'ec2', 'web', 1,
         )
         expected = {
@@ -319,7 +319,7 @@ class TestConfigContext(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
 
-        node_context = configuration._get_node_context(
+        node_context = configuration._get_resource_context(
             'test1', 'ec2', 'web', 7,
         )
         expected = {
@@ -910,7 +910,9 @@ class TestConfigExpansion(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_configuration(
+            'test1',
+        )
         expected = {
             "ec2": {
                 'web0-0': {
@@ -1039,7 +1041,9 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_configuration(
+            'test1',
+        )
         expected = {
             'ec2': {
                 'web0-0': {
@@ -1090,7 +1094,9 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_configuration(
+            'test1',
+        )
         expected = {
             'ec2': {
                 'web0-0': {

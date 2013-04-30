@@ -180,8 +180,11 @@ class ConfigurationManager(object):
 
         return seed_environment_name
 
-    def _get_node_context(
-        self, environment_name, resource_type, resource_name,
+    def _get_resource_context(
+        self,
+        environment_name,
+        resource_type,
+        resource_name,
         scaling_index,
     ):
         """
@@ -207,7 +210,10 @@ class ConfigurationManager(object):
         return context
 
     def _get_seed_node_context(
-        self, environment_name, resource_type, resource_name,
+        self,
+        environment_name,
+        resource_type,
+        resource_name,
         scaling_index,
     ):
         environment = self.environments[environment_name]
@@ -293,7 +299,7 @@ class ConfigurationManager(object):
                 environment,
             )
 
-        context['node'] = self._get_node_context(
+        context['node'] = self._get_resource_context(
             environment,
             resource_type,
             name,
@@ -308,6 +314,15 @@ class ConfigurationManager(object):
         return context
 
     def _apply_node_template(self, resource_type, resource_configuration):
+        """
+        If the given `resource_configuration` defines a `node_template_name`,
+        then this function will find the matching `node_template` (based on the
+        `resource_type`) and perform a deep merged.
+
+        The end result is that any default values from the node template will
+        be applied and a new `resource_configuration` will be returned with the
+        defaults from its `node_template`.
+        """
 
         def deep_merge(base, overrides):
             if not isinstance(overrides, Mapping):
@@ -335,7 +350,15 @@ class ConfigurationManager(object):
             resource_configuration,
         )
 
-    def _evaluate_configuration(self, config_context, resource_configuration):
+    def _evaluate_configuration_templates(
+        self, config_context, resource_configuration,
+    ):
+        """
+        For the given `resource_configuration`, evaluate all of the template
+        usage in the nested configuration values with the given
+        `config_context`. The result is a dictionary with the same structure as
+        the `resource_configuration`, but with rendered template values.
+        """
         def evaluate_templates(config, context):
             if config is None:
                 return None
@@ -366,7 +389,19 @@ class ConfigurationManager(object):
         )
         return (evaluated_template['unique_id'], evaluated_template)
 
-    def expand_configurations(self, environment_name):
+    def get_environment_configuration(self, environment_name):
+        """
+        Get the fully-evaluated configuration for the given `environment_name`.
+
+        This process includes:
+            * Applying any `Node Templates`
+            * Using the `ScalingBackend` to determine how many of a resource
+              will be available
+            * Evaluating all template syntax with the appropriate context.
+
+        The resulting configuration will be used by `neckbeard.actions` and
+        consumed by Brain Wrinkles to actually act on resources.
+        """
         if environment_name in self._expanded_configuration:
             return self._expanded_configuration[environment_name]
 
@@ -401,7 +436,7 @@ class ConfigurationManager(object):
                         resource_name,
                         scaling_index=index,
                     )
-                    result = self._evaluate_configuration(
+                    result = self._evaluate_configuration_templates(
                         config_context,
                         expanded_configuration,
                     )
@@ -412,10 +447,31 @@ class ConfigurationManager(object):
 
         return expanded_conf
 
+    def get_neckbeard_configuration(self):
+        raise NotImplementedError()
+        #config_context = self._get_config_context_for_resource(
+        #    environment_name,
+        #    resource_type,
+        #    resource_name,
+        #    scaling_index=index,
+        #)
+        #result = self._evaluate_configuration_templates(
+        #    config_context,
+        #    expanded_configuration,
+        #)
+        #unique_id, evaluated_resource_conf = result
+
+        ## TODO: Detect duplicate unique ids
+        #resource_conf[unique_id] = evaluated_resource_conf
+
+        #return expanded_conf
+
     def dump_environment_configuration(
         self, environment_name, output_directory,
     ):
-        expanded_configuration = self.expand_configurations(environment_name)
+        expanded_configuration = self.get_environment_configuration(
+            environment_name,
+        )
 
         if os.path.exists(output_directory):
             shutil.rmtree(output_directory)
