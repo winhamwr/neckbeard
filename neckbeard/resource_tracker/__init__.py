@@ -7,8 +7,8 @@ def build_tracker_from_config(configuration_manager):
     neckbeard_config = configuration_manager.get_neckbeard_configuration()
 
     tracker_config = neckbeard_config['resource_tracker']
+    backend_path = tracker_config['backend_path']
     backend_config = tracker_config['backend']
-    backend_path = backend_config['path']
 
     if backend_path == 'neckbeard.resource_tracker.SimpleDBResourceTracker':
         # This a horribly hacky way to load the backend. Instead, we should use
@@ -33,4 +33,6 @@ class ResourceTrackerBase(object):
 
 
 class SimpleDBResourceTracker(ResourceTrackerBase):
-    pass
+
+    def __init__(self, domain, aws_access_key_id, aws_secret_access_key):
+        pass

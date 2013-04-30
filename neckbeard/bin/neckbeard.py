@@ -135,7 +135,7 @@ def do_view(
 ):
     logger.info("Running up on environment: %s", environment_name)
     view(
-        environment=environment_name,
+        environment_name=environment_name,
         configuration=configuration.get_environment_configuration(
             environment_name,
         ),
