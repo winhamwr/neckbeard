@@ -474,6 +474,11 @@ class ConfigurationManager(object):
                     evaluated_conf = evaluate_configuration_templates(
                         configuration=expanded_configuration,
                         context=config_context,
+                        debug_trace="%s.%s.%s" % (
+                            environment_name,
+                            resource_type,
+                            resource_name,
+                        ),
                     )
                     unique_id = evaluated_conf['unique_id']
 
@@ -495,6 +500,7 @@ class ConfigurationManager(object):
         evaluated_config = evaluate_configuration_templates(
             configuration=self.neckbeard_meta,
             context=config_context,
+            debug_trace="neckbeard_meta",
         )
 
         # Remove the version. That's only for the Loader and
