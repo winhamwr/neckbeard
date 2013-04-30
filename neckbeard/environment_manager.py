@@ -3,10 +3,8 @@ import time
 from copy import copy
 from datetime import datetime
 
-import simpledb
 from boto import ec2, rds
 from fabric.api import env, require
-from simpledb.models import FieldEncoder
 
 from neckbeard.cloud_resource import InfrastructureNode
 
@@ -14,10 +12,6 @@ logger = logging.getLogger('environment_manager')
 
 WAIT_TIME = 10
 MAKE_OPERATIONAL_TIMEOUT = 4 * 60  # 4 minutes
-
-# TODO: This should be pulled from the Resource Tracker Backend's (or
-# whatever we end up calling it) configuration
-RESOURCE_TRACKER_BACKEND_S3_DOMAIN = 'pstat-neckbeard-infrastructure'
 
 
 class PstatRdsId(object):
@@ -84,8 +78,6 @@ class Deployment(object):
         self._pending_gen_id = None
         self._active_gen_id = None
 
-        self._initialize_resource_tracker_backend()
-
         self.ec2conn = ec2.EC2Connection(
             env.aws_access_key_id,
             env.aws_secret_access_key,
@@ -94,42 +86,6 @@ class Deployment(object):
             env.aws_access_key_id,
             env.aws_secret_access_key,
         )
-
-    def _initialize_resource_tracker_backend(self):
-        # TODO: This is where we should use the configuration to initialize a
-        # pluggable resource tracker. For now, we use the hard-coded SimpleDB
-        # backend.
-        simpledbconn = simpledb.SimpleDB(
-            env.coordinator_aws_key,
-            env.coordinator_aws_secret,
-        )
-
-        domain_name = RESOURCE_TRACKER_BACKEND_S3_DOMAIN
-        # Ensure the SimpleDB domain is created
-        if not simpledbconn.has_domain(domain_name):
-            simpledbconn.create_domain(domain_name)
-
-        # Now we have to do some voodoo lifted from the metaclass
-        #` simpledb.models:ModelMetaclass.__new__` so that all of the ORM magic
-        # works
-        # We have to do all of this nonsense so that we can avoid declaring the
-        # SimpleDB connection object at class definition time and instead
-        # declare it at the instantiation time of its environment manager
-        simpledbconn.encoder = FieldEncoder(
-            InfrastructureNode.fields,
-        )
-
-        domain = simpledb.Domain(
-            domain_name,
-            simpledbconn,
-        )
-        domain.model = InfrastructureNode
-
-        class Meta:
-            connection = simpledbconn
-            domain = domain
-
-        InfrastructureNode.Meta = Meta
 
     @property
     def active_gen_id(self):
