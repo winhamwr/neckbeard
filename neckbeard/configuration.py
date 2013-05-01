@@ -56,12 +56,21 @@ def mkdir_p(path):
 def evaluate_configuration_templates(configuration, context, debug_trace=''):
     """
     For the given `configuration` (a nested dictionary), walk the dictionary,
-    evaluating all template usage. The result is a dictionary with the same
-    structure as the `resource_configuration`, but with rendered template
-    values.
+    evaluating any string values for Jinja2 template usage and walking any maps
+    (dictionary-ish things) or lists to find any strings that need template
+    expansion. The result is a dictionary with the same structure as the
+    `configuration`, but with any Jinja2 template syntax fully rendered.
 
-    Only string values are evaluated and the template is evaluated with the
-    given `context`.
+    Note: This function is recursive, but users of the function probably
+    shouldn't attempt to take advantage of that fact.
+
+    `context` is the template context which Jinja2 will use for evaluation.
+
+    `debug_trace` is a dot-separated list to track how a key is nested for
+    template evaluation (eg. 'neckbeard_meta.resource_tracker.backend_path') so
+    that error messages about template problems can point users to the exact
+    place in their `configuration` where the error occurred. The recursive
+    calls build this up.
     """
     if configuration is None:
         return None
@@ -89,11 +98,16 @@ def evaluate_configuration_templates(configuration, context, debug_trace=''):
             raise
 
     constant_types = [bool, int, float]
+    # These types can't have any strings nested inside of them, so we can just
+    # use their current value directly
     for constant_type in constant_types:
         if isinstance(configuration, constant_type):
             return configuration
 
     evaluated_config = deepcopy(configuration)
+    # Everything else is either a dictionary-like `Mapping` or an iterable,
+    # either of which could contain strings that need template evaluation.
+    # Recursively evaluate their children/members.
     if isinstance(configuration, Mapping):
         for key, value in configuration.iteritems():
             evaluated_config[key] = evaluate_configuration_templates(
@@ -391,7 +405,7 @@ class ConfigurationManager(object):
         """
         If the given `resource_configuration` defines a `node_template_name`,
         then this function will find the matching `node_template` (based on the
-        `resource_type`) and perform a deep merged.
+        `resource_type`) and perform a deep merge.
 
         The end result is that any default values from the node template will
         be applied and a new `resource_configuration` will be returned with the
