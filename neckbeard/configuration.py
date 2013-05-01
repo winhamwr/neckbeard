@@ -531,4 +531,4 @@ class ConfigurationManager(object):
                 )
 
                 with open(resource_file, 'w') as fp:
-                    json.dump(resource_config, fp)
+                    json.dump(resource_config, fp, indent=4)
