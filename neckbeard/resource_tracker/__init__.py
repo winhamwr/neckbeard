@@ -15,13 +15,14 @@ def build_tracker_from_config(configuration_manager):
     neckbeard_config = configuration_manager.get_neckbeard_meta_config()
 
     tracker_config = neckbeard_config['resource_tracker']
-    backend_path = tracker_config['backend_path']
-    backend_config = tracker_config['backend']
+    tracker_path = tracker_config['path']
+    tracker_init = tracker_config['init']
 
-    if backend_path == 'neckbeard.resource_tracker.SimpleDBResourceTracker':
-        # This a horribly hacky way to load the backend. Instead, we should use
-        # a plugin registration system to instantiate these.
-        return SimpleDBResourceTracker(**backend_config)
+    if tracker_path == 'neckbeard.resource_tracker.SimpleDBResourceTracker':
+        # This a horribly hacky way to load the chosen ResourceTracker.
+        # Instead, we should use a plugin registration system to instantiate
+        # these.
+        return SimpleDBResourceTracker(**tracker_init)
     else:
         raise NotImplementedError()
 
@@ -32,6 +33,9 @@ class ResourceTrackerBase(object):
     resources. It's the only real "memory" that persists between runs outside
     of the cloud APIs themselves. It tracks nodes, their deployment state,
     their generation and their environment.
+
+    The `__init__` for a `ResourceTracker` will be passed as kwargs all of the
+    configuration from `neckbeard_meta.resource_tracker.init`.
     """
 
 

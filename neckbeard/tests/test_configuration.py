@@ -1119,7 +1119,7 @@ class TestConfigExpansion(unittest2.TestCase):
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'neckbeard_meta': {
                 'resource_tracker': {
-                    'backend': {
+                    'init': {
                         'foo': 'secret',
                     },
                 },
@@ -1129,17 +1129,17 @@ class TestConfigExpansion(unittest2.TestCase):
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'neckbeard_meta': {
                 'resource_tracker': {
-                    'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                    'path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
                 },
             },
         }
         neckbeard_meta = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'resource_tracker': {
-                'backend_path': "{{ constants.resource_tracker.backend_path }}",  # NOQA
-                'backend': {
+                'path': "{{ constants.resource_tracker.path }}",  # NOQA
+                'init': {
                     "hard_coded": "hard_coded",
-                    "secret": "{{ secrets.resource_tracker.backend.foo }}",
+                    "secret": "{{ secrets.resource_tracker.init.foo }}",
                 },
             },
         }
@@ -1154,8 +1154,8 @@ class TestConfigExpansion(unittest2.TestCase):
         expanded_configuration = configuration.get_neckbeard_meta_config()
         expected = {
             'resource_tracker': {
-                'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
-                'backend': {
+                'path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                'init': {
                     "hard_coded": "hard_coded",
                     "secret": "secret",
                 },
