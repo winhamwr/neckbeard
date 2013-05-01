@@ -246,6 +246,10 @@ class Deployment(object):
                     node.aws_type,
                     node.name,
                 )
+                logger.info(
+                    "Available configurations: %s",
+                    self.deployment_confs[node.aws_type].keys(),
+                )
             else:
                 node.set_deployment_info(
                     self.deployment_confs[node.aws_type][node.name])
