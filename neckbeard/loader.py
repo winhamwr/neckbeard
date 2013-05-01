@@ -56,6 +56,7 @@ class NeckbeardLoader(object):
     }
     CONFIG_STRUCTURE = {
         "constants": None,
+        "neckbeard_meta": None,
         "secrets": None,
         "secrets.tpl": None,
         "environments": {},
@@ -67,6 +68,7 @@ class NeckbeardLoader(object):
     }
     ROOT_CONF_FILES = [
         'constants',
+        'neckbeard_meta',
         'secrets',
         'secrets.tpl',
     ]
@@ -111,7 +113,6 @@ class NeckbeardLoader(object):
     def _add_path_relative_validation_error(
         self, relative_path, error_type, extra_context=None,
     ):
-
         file_path = os.path.join(self.configuration_directory, relative_path)
         self._add_validation_error(file_path, error_type, extra_context)
 
@@ -335,7 +336,6 @@ class NeckbeardLoader(object):
             )
 
     def _validate_neckbeard_conf_version(self, raw_configuration):
-
         # Check all of the root configuration files
         for root_conf in self.ROOT_CONF_FILES:
             if not raw_configuration[root_conf].get(self.VERSION_OPTION):

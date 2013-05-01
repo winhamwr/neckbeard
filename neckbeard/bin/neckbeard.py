@@ -5,9 +5,10 @@ import logging
 import os.path
 
 from neckbeard.actions import view
-from neckbeard.loader import NeckbeardLoader
 from neckbeard.configuration import ConfigurationManager
+from neckbeard.loader import NeckbeardLoader
 from neckbeard.output import configure_logging
+from neckbeard.resource_tracker import build_tracker_from_config
 
 logger = logging.getLogger('cli')
 
@@ -123,7 +124,7 @@ def do_configuration_check(
         configuration_directory, '.expanded_config', environment_name,
     )
     logger.info("You can see the deets on your nodes in: %s", output_dir)
-    configuration.dump_environment_configuration(
+    configuration.dump_environment_config(
         environment_name,
         output_dir,
     )
@@ -134,8 +135,11 @@ def do_view(
 ):
     logger.info("Running up on environment: %s", environment_name)
     view(
-        environment_name,
-        configuration.expand_configurations(environment_name),
+        environment_name=environment_name,
+        configuration=configuration.get_environment_config(
+            environment_name,
+        ),
+        resource_tracker=build_tracker_from_config(configuration),
     )
 
 

@@ -282,7 +282,7 @@ class TestConfigContext(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
 
-        node_context = configuration._get_node_context(
+        node_context = configuration._get_resource_context(
             'test1', 'ec2', 'web', 1,
         )
         expected = {
@@ -319,7 +319,7 @@ class TestConfigContext(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
 
-        node_context = configuration._get_node_context(
+        node_context = configuration._get_resource_context(
             'test1', 'ec2', 'web', 7,
         )
         expected = {
@@ -621,7 +621,9 @@ class TestConfigContext(unittest2.TestCase):
         self.assertEqual(len(context['seed_node']), 0)
 
 
-class TestResourceTemplateApplication(unittest2.TestCase):
+class TestNodeTemplateApplication(unittest2.TestCase):
+    # TODO: Call this TestResourceTemplateApplication once node templates are
+    # renamed
 
     def test_no_template(self):
         # Nodes without a template still work
@@ -801,8 +803,8 @@ class TestResourceTemplateApplication(unittest2.TestCase):
 
 
 class TestConfigExpansion(unittest2.TestCase):
-    def test_vanilla(self):
-        # Integration test for full config parsing
+    def test_environment_configuration(self):
+        # Integration test for full environment configuration parsing
         secrets = {
             NeckbeardLoader.VERSION_OPTION: '0.1',
             'environments': {
@@ -910,7 +912,9 @@ class TestConfigExpansion(unittest2.TestCase):
             node_templates=node_templates,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_config(
+            'test1',
+        )
         expected = {
             "ec2": {
                 'web0-0': {
@@ -1039,7 +1043,9 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_config(
+            'test1',
+        )
         expected = {
             'ec2': {
                 'web0-0': {
@@ -1090,7 +1096,9 @@ class TestConfigExpansion(unittest2.TestCase):
             environments=environments,
             scaling_backend=MaxScalingBackend(),
         )
-        expanded_configuration = configuration.expand_configurations('test1')
+        expanded_configuration = configuration.get_environment_config(
+            'test1',
+        )
         expected = {
             'ec2': {
                 'web0-0': {
@@ -1100,6 +1108,56 @@ class TestConfigExpansion(unittest2.TestCase):
                     "env_secret": "",
                     "env_name": "",
                     "node_foo": "",
+                },
+            },
+        }
+        self.assertEqual(expanded_configuration, expected)
+
+    def test_neckbeard_configuration(self):
+        # Integration test for creating the full Neckbeard meta configuration
+        secrets = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'neckbeard_meta': {
+                'resource_tracker': {
+                    'backend': {
+                        'foo': 'secret',
+                    },
+                },
+            },
+        }
+        constants = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'neckbeard_meta': {
+                'resource_tracker': {
+                    'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                },
+            },
+        }
+        neckbeard_meta = {
+            NeckbeardLoader.VERSION_OPTION: '0.1',
+            'resource_tracker': {
+                'backend_path': "{{ constants.resource_tracker.backend_path }}",  # NOQA
+                'backend': {
+                    "hard_coded": "hard_coded",
+                    "secret": "{{ secrets.resource_tracker.backend.foo }}",
+                },
+            },
+        }
+
+        configuration = ConfigurationManager(
+            environments={},
+            constants=constants,
+            secrets=secrets,
+            neckbeard_meta=neckbeard_meta,
+            scaling_backend=MaxScalingBackend(),
+        )
+        expanded_configuration = configuration.get_neckbeard_meta_config()
+        expected = {
+            'resource_tracker': {
+                'backend_path': "neckbeard.resource_tracker.ResourceTrackerBase",  # NOQA
+                'backend': {
+                    "hard_coded": "hard_coded",
+                    "secret": "secret",
                 },
             },
         }
@@ -1147,7 +1205,7 @@ class TestFileDumping(unittest2.TestCase):
             scaling_backend=MaxScalingBackend(),
         )
         output_dir = path.join(self.tmp_dir, 'test1')
-        configuration.dump_environment_configuration(
+        configuration.dump_environment_config(
             'test1',
             output_dir,
         )

@@ -8,7 +8,7 @@ from neckbeard.environment_manager import Deployment
 logger = logging.getLogger('actions.view')
 
 
-def view(environment_name, configuration, generation=ACTIVE):
+def view(environment_name, configuration, resource_tracker, generation=ACTIVE):
     """
     The view task output status information about all of the cloud resources
     associated with a specific generation of a specific deployment.
