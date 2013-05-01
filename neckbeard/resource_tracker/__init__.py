@@ -21,11 +21,7 @@ def build_tracker_from_config(configuration_manager):
     if backend_path == 'neckbeard.resource_tracker.SimpleDBResourceTracker':
         # This a horribly hacky way to load the backend. Instead, we should use
         # a plugin registration system to instantiate these.
-        return SimpleDBResourceTracker(
-            domain=backend_config['domain'],
-            aws_access_key_id=backend_config['aws_access_key_id'],
-            aws_secret_access_key=backend_config['aws_secret_access_key'],
-        )
+        return SimpleDBResourceTracker(**backend_config)
     else:
         raise NotImplementedError()
 
