@@ -100,6 +100,18 @@ def run_commands(command, environment, configuration_directory):
     if configuration is None:
         return 1
 
+    if environment is None:
+        # If no environment is given, but there's only one environment
+        # available, just go ahead and use it
+        available_environments = configuration.get_available_environments()
+        if len(available_environments) == 1:
+            environment = available_environments[0]
+        else:
+            raise Exception((
+                "An environment option is required. "
+                "Available options: %s" % available_environments
+            ))
+
     if command == 'check':
         do_configuration_check(
             configuration_directory,

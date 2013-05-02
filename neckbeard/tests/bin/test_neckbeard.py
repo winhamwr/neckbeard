@@ -13,6 +13,21 @@ FIXTURE_CONFIGS_DIR = path.abspath(
 
 
 class TestRunCommands(unittest2.TestCase):
+    def test_environment_optional_if_only_one(self):
+        # If there's only one environment configured, we don't actually need to
+        # specific an environment
+        configuration_dir = path.join(
+            FIXTURE_CONFIGS_DIR,
+            'single_environment',
+        )
+
+        return_code = run_commands(
+            'check',
+            None,
+            configuration_directory=configuration_dir,
+        )
+        self.assertEqual(return_code, 0)
+
     def test_check(self):
         # Let's use the minimal configs
         configuration_dir = path.join(FIXTURE_CONFIGS_DIR, 'minimal')

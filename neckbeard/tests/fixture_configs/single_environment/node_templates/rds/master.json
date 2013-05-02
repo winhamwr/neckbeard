@@ -1,0 +1,8 @@
+{
+	"node_aws_type": "rds",
+	"node_template_name": "master",
+	"neckbeard_conf_version": "0.1",
+	"defaults": {},
+	"required_overrides": {}
+}
+

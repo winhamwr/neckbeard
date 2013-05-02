@@ -440,6 +440,13 @@ class ConfigurationManager(object):
             resource_configuration,
         )
 
+    def get_available_environments(self):
+        """
+        Return a list of environment names that are present within this
+        configuration.
+        """
+        return self.environments.keys()
+
     def get_environment_config(self, environment_name):
         """
         Get the fully-evaluated configuration for the given `environment_name`.
