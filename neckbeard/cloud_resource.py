@@ -23,6 +23,12 @@ logger = logging.getLogger('cloud_resource')
 fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
 
+REQUIRED_CONFIGURATION = {
+    'ec2': [
+        'aws.keypair',
+    ],
+}
+
 
 class InfrastructureNode(models.Model):
     nodename = models.ItemName()
@@ -278,7 +284,7 @@ class InfrastructureNode(models.Model):
             return False
 
         if self.aws_type == 'ec2':
-            key_name = self._deployment_info['operational_checks']['aws_keypair']  # noqa
+            key_name = self._deployment_info['aws']['keypair']
             elastic_ip = self.get_elastic_ip()
             loadbalancer = self.get_loadbalancer()
 
@@ -421,7 +427,7 @@ class InfrastructureNode(models.Model):
             return False
 
         if self.aws_type == 'ec2':
-            key_name = self._deployment_info['operational_checks']['aws_keypair']  # noqa
+            key_name = self._deployment_info['aws']['keypair']
 
             if self.boto_instance.state != 'running':
                 logger.debug(

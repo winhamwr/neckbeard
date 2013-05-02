@@ -156,9 +156,11 @@ class AppServerProvisioner(BaseProvisioner):
         # edit the /etc/hosts file first, otherwise
         # sudo may complain about the hostname not being resolvable
         with hide(*fab_output_hides):
-            self._append_text_to_line_in_files(['/etc/hosts'],
-                    '^127.0.0.1',
-                    ' %s' % hostname)
+            self._append_text_to_line_in_files(
+                ['/etc/hosts'],
+                '^127.0.0.1',
+                ' %s' % hostname,
+            )
             sudo('hostname %s' % hostname)
             # Save the hostname so it is restored on reboot
             sudo('hostname > /etc/hostname')
@@ -174,7 +176,6 @@ class AppServerProvisioner(BaseProvisioner):
         require('project_root')
         require('config_folder')
         require('ssl_prefix')
-        require('aws_keypair')
         require('backup')
         require('aws_access_key_id')
         require('aws_secret_access_key')
@@ -558,7 +559,8 @@ class AppServerProvisioner(BaseProvisioner):
                 sudo('chown %s %s' % (chown, target))
 
     def _configure_settings_target(
-        self, source_dir, settings_target, chown=None):
+        self, source_dir, settings_target, chown=None,
+    ):
         logger.info("Configuring settings_target.py")
 
         target = '%s/pstat/settings_target.py' % source_dir
@@ -688,7 +690,8 @@ class AppServerProvisioner(BaseProvisioner):
         env.pstat_settings['CELERY_BACKEND_HOST'] = node.boto_instance.private_dns_name  # noqa
 
     def _update_ldap_api_endpoint_settings(
-        self, all_ldap_api_nodes, same_az_ldap_api_nodes, node_roles):
+        self, all_ldap_api_nodes, same_az_ldap_api_nodes, node_roles,
+    ):
 
         env.pstat_settings['DYNAMIC_LDAP_API_ENDPOINTS'] = []
 

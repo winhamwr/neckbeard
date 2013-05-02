@@ -8,8 +8,10 @@ Elastic Compute Cloud (EC2)
 Required Options
 ----------------
 
-`foo.baz`
-~~~~~~~~~
+`aws.keypair`
+~~~~~~~~~~~~~
+
+The keypair the EC2 instance will be launched with.
 
 Optional Configuration
 ----------------------
