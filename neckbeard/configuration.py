@@ -149,6 +149,8 @@ class ConfigurationManager(object):
         * The end results combines the scaling state, configuration, and
           context to generate an individual expanded configuration for each
           `CloudResource` that should exist.
+
+          The entire context is defined by `_get_config_context_for_resource`.
     """
     def __init__(
         self,
