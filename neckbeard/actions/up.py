@@ -1,7 +1,5 @@
-import copy
 import logging
 import time
-from collections import namedtuple
 from datetime import datetime
 
 from decorator import contextmanager
@@ -40,7 +38,7 @@ UP_END_MSG = (
     "<br />Took: <strong>%(duration)s</strong>s"
 )
 
-logger = logging.getLogger('actions.view')
+logger = logging.getLogger('actions.up')
 time_logger = logging.getLogger('timer')
 
 timer = {}
@@ -68,26 +66,28 @@ def up(
 
     with logs_duration(timer, timer_name='pre_deploy_validation'):
         # TODO: Make this an optional hook that can be registered
-        repo = _get_git_repo()
-
-        # Force submodules to be updated
-        # TODO: Make this an optional hook that can be registered
-        with prompt_on_exception("Git submodule update failed"):
-            repo.submodule_update(init=True, recursive=True)
-
-        # Optionally require that we deploy from a tagged commit.
-        # TODO: Make this an optional hook that can be registered
         git_conf = {}
-        if git_conf.get('require_tag', False):
-            logger.info("Enforcing git tag requirement")
-            if not _is_unchanged_from_head(repo):
-                logger.critical(
-                    "Refusing to deploy, uncommitted changes exist.")
-                exit(1)
-            if not _is_tagged_version(repo):
-                logger.critical("Refusing to deploy from an untagged commit.")
-                exit(1)
-            _push_tags(repo)
+        if git_conf.get('enable'):
+            repo = _get_git_repo()
+
+            # Force submodules to be updated
+            # TODO: Make this an optional hook that can be registered
+            with prompt_on_exception("Git submodule update failed"):
+                repo.submodule_update(init=True, recursive=True)
+
+            # Optionally require that we deploy from a tagged commit.
+            if git_conf.get('require_tag', False):
+                logger.info("Enforcing git tag requirement")
+                if not _is_unchanged_from_head(repo):
+                    logger.critical(
+                        "Refusing to deploy, uncommitted changes exist.")
+                    exit(1)
+                if not _is_tagged_version(repo):
+                    logger.critical(
+                        "Refusing to deploy from an untagged commit.",
+                    )
+                    exit(1)
+                _push_tags(repo)
 
         # TODO: Make this an optional hook that can be registered
         pagerduty_conf = {}
@@ -118,39 +118,12 @@ def up(
 
     # Gather all of the configurations for each node, including their
     # seed deployment information
-    logger.info("Gathering node configuration and status")
-    with logs_duration(timer, timer_name='gather node status'):
-        # All rds and ec2 nodes, rds nodes first
-        dep_confs = [
-            (
-                'rds',
-                sorted(environment_config.get('ec2', {})),
-            ),
-            (
-                'ec2',
-                sorted(environment_config.get('rds', {})),
-            ),
-        ]
-
-        node_deploys = []
-        NodeDeploy = namedtuple(
-            'NodeDeploy',
-            [
-                'aws_type',
-                'node_name',
-                'deployment',
-                'seed_node_name',
-                'seed_deployment',
-                'verify_seed_data',
-                'brain_wrinkles',
-                'make_operational',
-            ],
-        )
-
+    logger.info("Gathering seed deployment state")
+    with logs_duration(timer, timer_name='seed_deployment_state'):
         # If this environment has a seed environment, build that environment
         # manager
         seed_deployment = None
-        seed_deployment_name = configuration_manager.get_seed_environment(
+        seed_deployment_name = configuration_manager.get_seed_environment_name(
             environment_name,
         )
         if seed_deployment_name:
@@ -163,8 +136,26 @@ def up(
                 seed_config.get('rds', {}),
                 seed_config.get('elb', {}),
             )
+            logger.info("Verifying seed deployment state")
             seed_deployment.verify_deployment_state(verify_old=False)
 
+    # Build all of the deployment objects
+    logger.info("Building Node deployers")
+    with logs_duration(timer, timer_name='build deployers'):
+        ec2_deployers = []
+        rds_deployers = []
+
+        # All rds and ec2 nodes, rds nodes first
+        dep_confs = [
+            (
+                'rds',
+                environment_config.get('ec2', {}),
+            ),
+            (
+                'ec2',
+                environment_config.get('rds', {}),
+            ),
+        ]
 
         for aws_type, node_confs in dep_confs:
             for node_name, conf in node_confs.items():
@@ -178,57 +169,28 @@ def up(
                     seed_node_name = None
                     verify_seed_data = False
 
-                node_deploy = NodeDeploy(
+                if aws_type == 'ec2':
+                    klass = Ec2NodeDeployment
+                elif aws_type == 'rds':
+                    klass = RdsNodeDeployment
+
+                deployer = klass(
+                    deployment=deployment,
+                    seed_deployment=seed_deployment,
+                    is_active=env._active_gen,
                     aws_type=aws_type,
                     node_name=node_name,
-                    deployment=deployment,
                     seed_node_name=seed_node_name,
-                    seed_deployment=seed_deployment,
-                    verify_seed_data=verify_seed_data,
+                    seed_verification=verify_seed_data,
                     brain_wrinkles=conf.get('brain_wrinkles', {}),
-                    make_operational=make_operational)
-                node_deploys.append(node_deploy)
-
-    ec2_deployers = []
-    rds_deployers = []
-    # Build all of the deployment objects
-    logger.info("Building Node deployers")
-    with logs_duration(timer, timer_name='build deployers'):
-        for nd in node_deploys:
-            if nd.aws_type == 'ec2':
-                conf_dict = env._deployment_confs['ec2'][nd.node_name]
-                node_conf = conf_dict.get('conf', {})
-                conf_key = conf_dict['conf_key']
-                env_confs = copy.copy(env.INSTANCES[conf_key])
-
-                deployer = Ec2NodeDeployment(
-                    nd.deployment,
-                    nd.seed_deployment,
-                    env._active_gen,
-                    nd.aws_type,
-                    nd.node_name,
-                    nd.seed_node_name,
-                    seed_verification=nd.verify_seed_data,
-                    brain_wrinkles=nd.brain_wrinkles,
-                    conf=node_conf,
+                    conf=conf,
                 )
-                ec2_deployers.append((env_confs, deployer))
 
-            elif nd.aws_type == 'rds':
-                conf_dict = env._deployment_confs['rds'][nd.node_name]
-                node_conf = conf_dict.get('conf', {})
-                deployer = RdsNodeDeployment(
-                    nd.deployment,
-                    nd.seed_deployment,
-                    env._active_gen,
-                    nd.aws_type,
-                    nd.node_name,
-                    nd.seed_node_name,
-                    seed_verification=nd.verify_seed_data,
-                    brain_wrinkles=nd.brain_wrinkles,
-                    conf=node_conf,
-                )
-                rds_deployers.append(deployer)
+                if aws_type == 'ec2':
+                    ec2_deployers.append(deployer)
+                elif aws_type == 'rds':
+                    rds_deployers.append(deployer)
+
     # We don't actually want to do deployments until we have tests
     assert False
 
@@ -243,11 +205,7 @@ def up(
 
         # Provision the EC2 nodes
         logger.info("Provisioning EC2 nodes")
-        for env_confs, deployer in ec2_deployers:
-            # Prepare the environment for deployment
-            for key, value in env_confs.items():
-                setattr(env, key, value)
-
+        for deployer in ec2_deployers:
             if deployer.seed_verification and deployer.get_node() is None:
                 _prompt_for_seed_verification(deployer)
 
@@ -264,14 +222,10 @@ def up(
 
     # Configure the EC2 nodes
     logger.info("Deploying to EC2 nodes")
-    for env_confs, deployer in ec2_deployers:
+    for deployer in ec2_deployers:
         timer_name = '%s deploy' % deployer.node_name
         with logs_duration(timer, timer_name='full %s' % timer_name):
             node = deployer.get_node()
-
-            # Prepare the environment for deployment
-            for key, value in env_confs.items():
-                setattr(env, key, value)
 
             with seamless_modification(
                 node,
@@ -279,7 +233,6 @@ def up(
                 force_seamless=env._active_gen,
                 make_operational_if_not_already=make_operational,
             ):
-
                 pre_deploy_time = datetime.now()
                 with logs_duration(
                     timer,
@@ -289,7 +242,9 @@ def up(
                     deployer.run()
             if DT_NOTIFY:
                 _send_deployment_done_desktop_notification(
-                    pre_deploy_time, deployer)
+                    pre_deploy_time,
+                    deployer,
+                )
 
     _announce_deployment()
 
@@ -319,7 +274,7 @@ def _order_ec2_deployers_by_priority(ec2_deployers):
     o_healthy = []
 
     for ec2_deployer in ec2_deployers:
-        env_confs, deployer = ec2_deployer
+        deployer = ec2_deployer
         node = deployer.get_node()
         if node.is_operational:
             if node.is_healthy:

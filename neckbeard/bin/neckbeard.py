@@ -156,7 +156,7 @@ def do_up(
     logger.info("Running up on environment: %s", environment_name)
     up(
         environment_name=environment_name,
-        configuration=configuration,
+        configuration_manager=configuration,
         resource_tracker=build_tracker_from_config(configuration),
     )
 
@@ -167,7 +167,7 @@ def do_view(
     logger.info("Running view on environment: %s", environment_name)
     view(
         environment_name=environment_name,
-        configuration=configuration,
+        configuration_manager=configuration,
         resource_tracker=build_tracker_from_config(configuration),
     )
 
