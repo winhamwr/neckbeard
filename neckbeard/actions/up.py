@@ -5,7 +5,7 @@ from collections import namedtuple
 from datetime import datetime
 
 from decorator import contextmanager
-from fabric.api import env, task, require, prompt
+from fabric.api import env, task, prompt
 
 from neckbeard.actions.contrib_hooks import (
     notifies_hipchat,
@@ -19,6 +19,7 @@ from neckbeard.actions.contrib_hooks import (
     _announce_deployment,
 )
 from neckbeard.actions.utils import (
+    ACTIVE,
     logs_duration,
     prompt_on_exception,
 )
@@ -48,25 +49,35 @@ timer = {}
 @task
 @notifies_hipchat(start_msg=UP_START_MSG, end_msg=UP_END_MSG)
 @logs_duration(timer, output_result=True)
-def up(force='n'):
+def up(
+    environment_name,
+    configuration_manager,
+    resource_tracker,
+    generation=ACTIVE,
+):
     """
     Make sure that the instances for the specified generation are running and
     have current code. Will update code and deploy new EC2 and RDS instances as
     needed.
     """
-    require('_deployment_name')
-    require('_deployment_confs')
-    require('_active_gen')
+    env._active_gen = True
 
-    with logs_duration(timer, timer_name='validation'):
+    if generation == ACTIVE:
+        # Always force the active generation in operation if possible
+        make_operational = True
+
+    with logs_duration(timer, timer_name='pre_deploy_validation'):
+        # TODO: Make this an optional hook that can be registered
         repo = _get_git_repo()
 
         # Force submodules to be updated
+        # TODO: Make this an optional hook that can be registered
         with prompt_on_exception("Git submodule update failed"):
             repo.submodule_update(init=True, recursive=True)
 
         # Optionally require that we deploy from a tagged commit.
-        git_conf = env._deployment_confs['conf'].get('git', {})
+        # TODO: Make this an optional hook that can be registered
+        git_conf = {}
         if git_conf.get('require_tag', False):
             logger.info("Enforcing git tag requirement")
             if not _is_unchanged_from_head(repo):
@@ -78,34 +89,8 @@ def up(force='n'):
                 exit(1)
             _push_tags(repo)
 
-        force = force == 'y'
-        if env._active_gen:
-            # Always force the active generation in operation if possible
-            force = True
-
-    logger.info("Gathering deployment state")
-    with logs_duration(timer, timer_name='gather deployment state'):
-        deployment = Deployment(
-            env._deployment_name,
-            env._deployment_confs['ec2'],
-            env._deployment_confs['rds'],
-            env._deployment_confs['elb'],
-        )
-        deployment.verify_deployment_state()
-
-        # All rds and ec2 nodes, rds nodes first
-        dep_confs = []
-        dep_confs.append(('rds', sorted(env._deployment_confs['rds'].items())))
-        dep_confs.append(('ec2', sorted(env._deployment_confs['ec2'].items())))
-
-        node_deploys = []
-        NodeDeploy = namedtuple(
-            'NodeDeploy',
-            ['aws_type', 'node_name', 'deployment', 'seed_node_name',
-             'seed_deployment', 'verify_seed_data', 'provisioner_conf',
-             'force'])
-
-        pagerduty_conf = env._deployment_confs['conf'].get('pagerduty', {})
+        # TODO: Make this an optional hook that can be registered
+        pagerduty_conf = {}
         if pagerduty_conf.get('temporarily_become_oncall', False):
             logger.info("Taking Pagerduty, temporarily")
             _take_temporary_pagerduty(
@@ -116,35 +101,82 @@ def up(force='n'):
                 schedule_key=pagerduty_conf.get('schedule_key'),
             )
 
+    logger.info("Gathering deployment state")
+    with logs_duration(timer, timer_name='gather deployment state'):
+        environment_config = configuration_manager.get_environment_config(
+            environment_name,
+        )
+        deployment = Deployment(
+            environment_name,
+            environment_config.get('ec2', {}),
+            environment_config.get('rds', {}),
+            environment_config.get('elb', {}),
+        )
+        # up never deals with old nodes, so just verify pending and active to
+        # save HTTP round trips
+        deployment.verify_deployment_state(verify_old=False)
+
     # Gather all of the configurations for each node, including their
     # seed deployment information
     logger.info("Gathering node configuration and status")
     with logs_duration(timer, timer_name='gather node status'):
-        for aws_type, node_confs in dep_confs:
-            for node_name, conf in node_confs:
-                # Get the seed deployment new instances will be copied from
-                seed_deployment = None
-                seed_node_name = None
-                if 'seed_node' in conf:
-                    seed_dep_name = conf['seed_node']['deployment']
-                    seed_node_name = conf['seed_node']['node']
-                    verify_seed_data = conf['seed_node'].get('verify', False)
+        # All rds and ec2 nodes, rds nodes first
+        dep_confs = [
+            (
+                'rds',
+                sorted(environment_config.get('ec2', {})),
+            ),
+            (
+                'ec2',
+                sorted(environment_config.get('rds', {})),
+            ),
+        ]
 
-                    seed_deployment = Deployment(
-                        seed_dep_name,
-                        env.DEPLOYMENTS[seed_dep_name]['ec2'],
-                        env.DEPLOYMENTS[seed_dep_name]['rds'],
-                        env.DEPLOYMENTS[seed_dep_name]['elb'],
-                    )
-                    # up never deals with old nodes, so just verify pending and
-                    # active to save HTTP round trips
-                    seed_deployment.verify_deployment_state(verify_old=False)
+        node_deploys = []
+        NodeDeploy = namedtuple(
+            'NodeDeploy',
+            [
+                'aws_type',
+                'node_name',
+                'deployment',
+                'seed_node_name',
+                'seed_deployment',
+                'verify_seed_data',
+                'brain_wrinkles',
+                'make_operational',
+            ],
+        )
+
+        # If this environment has a seed environment, build that environment
+        # manager
+        seed_deployment = None
+        seed_deployment_name = configuration_manager.get_seed_environment(
+            environment_name,
+        )
+        if seed_deployment_name:
+            seed_config = configuration_manager.get_environment_config(
+                seed_deployment_name,
+            )
+            seed_deployment = Deployment(
+                seed_deployment_name,
+                seed_config.get('ec2', {}),
+                seed_config.get('rds', {}),
+                seed_config.get('elb', {}),
+            )
+            seed_deployment.verify_deployment_state(verify_old=False)
+
+
+        for aws_type, node_confs in dep_confs:
+            for node_name, conf in node_confs.items():
+                # Get the seed deployment new instances will be copied from
+                seed_node_name = None
+                if seed_deployment and 'seed' in conf:
+                    seed_node_name = conf['seed']['unique_id']
+                    verify_seed_data = conf['seed_node'].get('verify', False)
                 else:
                     logger.info("No seed node configured")
                     seed_node_name = None
-                    seed_deployment = None
                     verify_seed_data = False
-                provisioner_conf = conf['provisioning']
 
                 node_deploy = NodeDeploy(
                     aws_type=aws_type,
@@ -153,8 +185,8 @@ def up(force='n'):
                     seed_node_name=seed_node_name,
                     seed_deployment=seed_deployment,
                     verify_seed_data=verify_seed_data,
-                    provisioner_conf=provisioner_conf,
-                    force=force)
+                    brain_wrinkles=conf.get('brain_wrinkles', {}),
+                    make_operational=make_operational)
                 node_deploys.append(node_deploy)
 
     ec2_deployers = []
@@ -177,7 +209,7 @@ def up(force='n'):
                     nd.node_name,
                     nd.seed_node_name,
                     seed_verification=nd.verify_seed_data,
-                    provisioner_conf=nd.provisioner_conf,
+                    brain_wrinkles=nd.brain_wrinkles,
                     conf=node_conf,
                 )
                 ec2_deployers.append((env_confs, deployer))
@@ -193,10 +225,12 @@ def up(force='n'):
                     nd.node_name,
                     nd.seed_node_name,
                     seed_verification=nd.verify_seed_data,
-                    provisioner_conf=nd.provisioner_conf,
+                    brain_wrinkles=nd.brain_wrinkles,
                     conf=node_conf,
                 )
                 rds_deployers.append(deployer)
+    # We don't actually want to do deployments until we have tests
+    assert False
 
     # Provision the RDS nodes
     with logs_duration(timer, timer_name='initial provision'):
@@ -243,7 +277,7 @@ def up(force='n'):
                 node,
                 deployer.deployment,
                 force_seamless=env._active_gen,
-                force_operational=force,
+                make_operational_if_not_already=make_operational,
             ):
 
                 pre_deploy_time = datetime.now()
@@ -303,7 +337,11 @@ def _order_ec2_deployers_by_priority(ec2_deployers):
 
 @contextmanager
 def seamless_modification(
-        node, deployment, force_seamless=True, force_operational=False):
+    node,
+    deployment,
+    force_seamless=True,
+    make_operational_if_not_already=False,
+):
     """
     Rotates the ``node`` in the ``deployment`` in and out of operation if
     possible to avoid service interruption. If ``force_seamless`` is True
@@ -314,7 +352,7 @@ def seamless_modification(
     that only healthy nodes should be rotated back in.
     """
     # should we make this node operational as the last step
-    make_operational = force_operational
+    make_operational = make_operational_if_not_already
 
     if node and force_seamless:
         if not deployment.has_required_redundancy(node):
@@ -413,7 +451,7 @@ def seamless_modification(
 
             while True:
                 deployment.repair_active_generation(
-                    force_operational=force_operational,
+                    force_operational=make_operational,
                     wait_until_operational=False)
 
                 if deployment.active_is_fully_operational():
