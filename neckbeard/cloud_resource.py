@@ -80,6 +80,10 @@ class InfrastructureNode(models.Model):
 
         return super(InfrastructureNode, self).__str__()
 
+    def save(self):
+        logger.critical("Called save on %s", self)
+        return
+
     def get_status_output(self):
         """
         Provide a detailed string representation of the instance with its
