@@ -7,14 +7,9 @@ import os
 from fabric.api import env
 from littlechef import runner as lc
 
-from pstat.pstat_deploy import fab_out_opts
-from pstat.pstat_deploy.provisioners.base import BaseProvisioner
+from neckbeard.brain_wrinkles import BaseProvisioner
 
-logger = logging.getLogger('prov:littlechef')
-logger.setLevel(logging.INFO)
-
-fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
-fab_quiet = fab_output_hides + ['stderr']
+logger = logging.getLogger('cm:littlechef')
 
 
 class LittleChefProvisioner(BaseProvisioner):

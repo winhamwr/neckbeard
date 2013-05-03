@@ -239,17 +239,21 @@ class Deployment(object):
                 node.name, None)
             if deploy_conf is None:
                 # We don't have a config for this named node
-                logger.warning(
-                    "No DEPLOYMENTS configuration exists in the <%s> "
-                    "deployment for the <%s> node with the name <%s>",
-                    self.deployment_name,
-                    node.aws_type,
-                    node.name,
-                )
-                logger.info(
-                    "Available configurations: %s",
-                    self.deployment_confs[node.aws_type].keys(),
-                )
+                # If it's not running though, it's probably from an old
+                # deployment and we've since changed our infrastructure
+                # configuration, so it's not worth worrying about
+                if node.is_running:
+                    logger.warning(
+                        "No DEPLOYMENTS configuration exists in the <%s> "
+                        "deployment for the <%s> node with the name <%s>",
+                        self.deployment_name,
+                        node.aws_type,
+                        node.name,
+                    )
+                    logger.info(
+                        "Available configurations: %s",
+                        self.deployment_confs[node.aws_type].keys(),
+                    )
             else:
                 node.set_deployment_info(
                     self.deployment_confs[node.aws_type][node.name])

@@ -23,6 +23,19 @@ logger = logging.getLogger('cloud_resource')
 fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
 fab_quiet = fab_output_hides + ['stderr']
 
+# This is just a non-functional place to track configuration options to provide
+# a starting point once we add actual validation
+REQUIRED_CONFIGURATION = {
+    'ec2': [
+        'aws.keypair',
+    ],
+}
+OPTIONAL_CONFIGURATION = {
+    'ec2': [
+        'aws.elastic_ip',
+    ],
+}
+
 
 class InfrastructureNode(models.Model):
     nodename = models.ItemName()
@@ -66,6 +79,13 @@ class InfrastructureNode(models.Model):
             return output_str
 
         return super(InfrastructureNode, self).__str__()
+
+    def save(self):
+        # Until this is well-tested, I don't want anyone running this code and
+        # actually writing to a SimpleDB Domain. This is a "permanent mock"
+        # until we think this functionality is safe/stable
+        logger.critical("Called save on %s", self)
+        return
 
     def get_status_output(self):
         """
@@ -278,7 +298,7 @@ class InfrastructureNode(models.Model):
             return False
 
         if self.aws_type == 'ec2':
-            key_name = self._deployment_info['operational_checks']['aws_keypair']  # noqa
+            key_name = self._deployment_info['aws']['keypair']
             elastic_ip = self.get_elastic_ip()
             loadbalancer = self.get_loadbalancer()
 
@@ -288,19 +308,20 @@ class InfrastructureNode(models.Model):
                     self.boto_instance,
                 )
                 return False
-            elif self.boto_instance.key_name != key_name:
+            if self.boto_instance.key_name != key_name:
                 logger.debug(
                     "is_operational: Instance %s has wrong key",
                     self.boto_instance,
                 )
                 return False
-            elif self.boto_instance.id != elastic_ip.instance_id:
-                logger.debug(
-                    "is_operational: Instance %s has wrong elastic ip",
-                    self.boto_instance,
-                )
-                return False
-            elif loadbalancer:
+            if elastic_ip:
+                if self.boto_instance.id != elastic_ip.instance_id:
+                    logger.debug(
+                        "is_operational: Instance %s has wrong elastic ip",
+                        self.boto_instance,
+                    )
+                    return False
+            if loadbalancer:
                 if not self._instance_in_load_balancer():
                     logger.debug(
                         "is_operational: Instance %s not in loadbalancer",
@@ -421,7 +442,7 @@ class InfrastructureNode(models.Model):
             return False
 
         if self.aws_type == 'ec2':
-            key_name = self._deployment_info['operational_checks']['aws_keypair']  # noqa
+            key_name = self._deployment_info['aws']['keypair']
 
             if self.boto_instance.state != 'running':
                 logger.debug(
@@ -518,8 +539,12 @@ class InfrastructureNode(models.Model):
         return elb_list[0]
 
     def get_elastic_ip(self):
+        configured_ip = self._deployment_info['aws'].get('elastic_ip')
+        if not configured_ip:
+            return None
+
         ips = self.ec2conn.get_all_addresses(
-            [self._deployment_info['operational_checks']['aws_ip']],
+            [configured_ip],
         )
         assert len(ips) == 1
 

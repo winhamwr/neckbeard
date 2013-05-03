@@ -33,6 +33,9 @@ LOGGERS = [
     'configuration',
     'loader',
     'environment_manager',
+    'actions.view',
+    'actions.up',
+    'timer',
 ]
 
 

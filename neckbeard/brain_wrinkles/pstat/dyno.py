@@ -4,15 +4,11 @@ Celery and Nginx/uwsgi.
 """
 import logging
 
-from pstat.pstat_deploy import fab_out_opts, fab_quiet_opts
-from pstat.pstat_deploy.provisioners.pstat.app import (
+from neckbeard.brain_wrinkles.pstat.app import (
     AppServerProvisioner,
 )
 
-logger = logging.getLogger('prov:pstat:dyno')
-
-fab_output_hides = fab_out_opts[logger.getEffectiveLevel()]
-fab_quiet = fab_quiet_opts[logger.getEffectiveLevel()]
+logger = logging.getLogger('bw:pstat:dyno')
 
 
 class DynoServerProvisioner(AppServerProvisioner):

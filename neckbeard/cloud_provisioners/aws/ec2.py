@@ -741,7 +741,6 @@ class Ec2NodeDeployment(BaseNodeDeployment):
 
         Returns the boto ec2 instance.
         """
-        require('aws_keypair')
         require('aws_access_key_id')
         require('aws_secret_access_key')
         require('ami_id')
@@ -754,7 +753,7 @@ class Ec2NodeDeployment(BaseNodeDeployment):
         # Start a new ec2 instance and get its instance id
         reservation = ec2conn.run_instances(
             env.ami_id,
-            key_name=env.aws_keypair,
+            key_name=self.config['aws']['keypair'],
             placement=env.aws_availability_zone,
             instance_type=env.ec2_instance_type,
             security_groups=env.aws_security_groups,

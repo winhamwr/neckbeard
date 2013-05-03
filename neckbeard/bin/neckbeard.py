@@ -4,7 +4,7 @@ import argparse
 import logging
 import os.path
 
-from neckbeard.actions import view
+from neckbeard.actions import up, view
 from neckbeard.configuration import ConfigurationManager
 from neckbeard.loader import NeckbeardLoader
 from neckbeard.output import configure_logging
@@ -14,8 +14,13 @@ logger = logging.getLogger('cli')
 
 COMMANDS = [
     'check',
+    'up',
     'view',
 ]
+
+COMMAND_ERROR_CODES = {
+    'INVALID_COMMAND_OPTIONS': 2,
+}
 
 
 class VerboseAction(argparse.Action):
@@ -100,8 +105,31 @@ def run_commands(command, environment, configuration_directory):
     if configuration is None:
         return 1
 
+    if environment is None:
+        # If no environment is given, but there's only one environment
+        # available, just go ahead and use it
+        available_environments = configuration.get_available_environments()
+        if len(available_environments) == 1:
+            environment = available_environments[0]
+        else:
+            logger.critical(
+                (
+                    "An environment option is required. "
+                    "Available options: %s"
+                ),
+                available_environments,
+            )
+            return COMMAND_ERROR_CODES['INVALID_COMMAND_OPTIONS']
+
     if command == 'check':
         do_configuration_check(
+            configuration_directory,
+            environment,
+            configuration,
+        )
+        return 0
+    elif command == 'up':
+        do_up(
             configuration_directory,
             environment,
             configuration,
@@ -130,15 +158,24 @@ def do_configuration_check(
     )
 
 
-def do_view(
+def do_up(
     configuration_directory, environment_name, configuration,
 ):
     logger.info("Running up on environment: %s", environment_name)
+    up(
+        environment_name=environment_name,
+        configuration_manager=configuration,
+        resource_tracker=build_tracker_from_config(configuration),
+    )
+
+
+def do_view(
+    configuration_directory, environment_name, configuration,
+):
+    logger.info("Running view on environment: %s", environment_name)
     view(
         environment_name=environment_name,
-        configuration=configuration.get_environment_config(
-            environment_name,
-        ),
+        configuration_manager=configuration,
         resource_tracker=build_tracker_from_config(configuration),
     )
 
