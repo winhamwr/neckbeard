@@ -18,6 +18,10 @@ COMMANDS = [
     'view',
 ]
 
+COMMAND_ERROR_CODES = {
+    'INVALID_COMMAND_OPTIONS': 2,
+}
+
 
 class VerboseAction(argparse.Action):
     """
@@ -108,10 +112,14 @@ def run_commands(command, environment, configuration_directory):
         if len(available_environments) == 1:
             environment = available_environments[0]
         else:
-            raise Exception((
-                "An environment option is required. "
-                "Available options: %s" % available_environments
-            ))
+            logger.critical(
+                (
+                    "An environment option is required. "
+                    "Available options: %s"
+                ),
+                available_environments,
+            )
+            return COMMAND_ERROR_CODES['INVALID_COMMAND_OPTIONS']
 
     if command == 'check':
         do_configuration_check(
