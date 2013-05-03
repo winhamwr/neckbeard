@@ -81,6 +81,9 @@ class InfrastructureNode(models.Model):
         return super(InfrastructureNode, self).__str__()
 
     def save(self):
+        # Until this is well-tested, I don't want anyone running this code and
+        # actually writing to a SimpleDB Domain. This is a "permanent mock"
+        # until we think this functionality is safe/stable
         logger.critical("Called save on %s", self)
         return
 
