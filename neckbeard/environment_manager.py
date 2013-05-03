@@ -4,7 +4,6 @@ from copy import copy
 from datetime import datetime
 
 from boto import ec2, rds
-from fabric.api import env, require
 
 from neckbeard.cloud_resource import InfrastructureNode
 
@@ -57,6 +56,14 @@ class WaitTimedOut(Exception):
     pass
 
 
+class MissingAWSCredentials(Exception):
+    pass
+
+
+class NonUniformAWSCredentials(Exception):
+    pass
+
+
 class Deployment(object):
     """
     Use configuration info to classify all currently running ec2 and RDS
@@ -66,26 +73,75 @@ class Deployment(object):
         """
         ``deployment_name`` A string uniquely identifying a deployment.
         """
-        require('aws_secret_access_key')
-        require('aws_access_key_id')
-
         self.deployment_name = deployment_name
         self.deployment_confs = {}
         self.deployment_confs['ec2'] = ec2_nodes
         self.deployment_confs['rds'] = rds_nodes
         self.deployment_confs['elb'] = elb_nodes
 
+        aws_credentials = self._get_valid_aws_credentials(
+            self.deployment_confs,
+        )
+
         self._pending_gen_id = None
         self._active_gen_id = None
 
         self.ec2conn = ec2.EC2Connection(
-            env.aws_access_key_id,
-            env.aws_secret_access_key,
+            aws_credentials['access_key_id'],
+            aws_credentials['secret_access_key'],
         )
         self.rdsconn = rds.RDSConnection(
-            env.aws_access_key_id,
-            env.aws_secret_access_key,
+            aws_credentials['access_key_id'],
+            aws_credentials['secret_access_key'],
         )
+
+    def _get_valid_aws_credentials(self, deployment_confs):
+        # TODO: Instead of just ensuring that all of the resources use the same
+        # credentials, actually manage multiple connection
+        aws_credentials = {
+            'access_key_id': None,
+            'secret_access_key': None,
+        }
+        for aws_type, configs_of_type in deployment_confs.items():
+            for name, resource_config in configs_of_type.items():
+                aws_config = resource_config.get('aws')
+                if aws_config is None:
+                    raise MissingAWSCredentials(
+                        "%s resource %s has no 'aws' configs" % (
+                            aws_type,
+                            name,
+                        ),
+                    )
+
+                # Ensure that the keys exist and that they're not different
+                # from those found on other resources
+                for key in ['access_key_id', 'secret_access_key']:
+                    value = aws_config.get(key)
+
+                    if value is None:
+                        raise MissingAWSCredentials(
+                            "%s resource %s has no '%s' config" % (
+                                aws_type,
+                                name,
+                                key,
+                            ),
+                        )
+                    other_resource_value = aws_credentials.get(key)
+                    if other_resource_value is not None:
+                        if value != other_resource_value:
+                            raise NonUniformAWSCredentials(
+                                (
+                                    "%s resource %s has no '%s' config "
+                                    "different from previously seen"
+                                ) % (
+                                    aws_type,
+                                    name,
+                                    key,
+                                ),
+                            )
+                    aws_credentials[key] = value
+
+        return aws_credentials
 
     @property
     def active_gen_id(self):
@@ -189,6 +245,10 @@ class Deployment(object):
                     self.deployment_name,
                     node.aws_type,
                     node.name,
+                )
+                logger.info(
+                    "Available configurations: %s",
+                    self.deployment_confs[node.aws_type].keys(),
                 )
             else:
                 node.set_deployment_info(

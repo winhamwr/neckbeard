@@ -32,6 +32,7 @@ LOGGERS = [
     'cli',
     'configuration',
     'loader',
+    'environment_manager',
 ]
 
 

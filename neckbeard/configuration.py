@@ -67,7 +67,7 @@ def evaluate_configuration_templates(configuration, context, debug_trace=''):
     `context` is the template context which Jinja2 will use for evaluation.
 
     `debug_trace` is a dot-separated list to track how a key is nested for
-    template evaluation (eg. 'neckbeard_meta.resource_tracker.backend_path') so
+    template evaluation (eg. 'neckbeard_meta.resource_tracker.path') so
     that error messages about template problems can point users to the exact
     place in their `configuration` where the error occurred. The recursive
     calls build this up.
@@ -545,4 +545,4 @@ class ConfigurationManager(object):
                 )
 
                 with open(resource_file, 'w') as fp:
-                    json.dump(resource_config, fp)
+                    json.dump(resource_config, fp, indent=4)
