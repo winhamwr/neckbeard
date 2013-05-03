@@ -208,20 +208,20 @@ class ConfigurationManager(object):
         return environments.get(environment_name, {})
 
     def _get_seed_environment_constants(self, environment_name):
-        seed_environment_name = self._get_seed_environment_name(
+        seed_environment_name = self.get_seed_environment_name(
             environment_name,
         )
 
         return self._get_environment_constants(seed_environment_name)
 
     def _get_seed_environment_secrets(self, environment_name):
-        seed_environment_name = self._get_seed_environment_name(
+        seed_environment_name = self.get_seed_environment_name(
             environment_name,
         )
 
         return self._get_environment_secrets(seed_environment_name)
 
-    def _get_seed_environment_name(
+    def get_seed_environment_name(
         self,
         environment_name,
         check_circular_reference=True,
@@ -247,7 +247,7 @@ class ConfigurationManager(object):
         # before doing any of this stuff and this should be a type of
         # validation error.
         if check_circular_reference:
-            seeds_seed = self._get_seed_environment_name(
+            seeds_seed = self.get_seed_environment_name(
                 seed_environment_name,
                 check_circular_reference=False,
             )
@@ -278,7 +278,7 @@ class ConfigurationManager(object):
             'name': resource_name,
         }
 
-        context['seed_environment_name'] = self._get_seed_environment_name(
+        context['seed_environment_name'] = self.get_seed_environment_name(
             environment_name,
         )
         context['scaling_index'] = scaling_index
@@ -296,7 +296,7 @@ class ConfigurationManager(object):
         resource_types = environment['aws_nodes'][resource_type]
         node = resource_types[resource_name]
 
-        seed_environment_name = self._get_seed_environment_name(
+        seed_environment_name = self.get_seed_environment_name(
             environment_name,
         )
         if not seed_environment_name:
@@ -359,7 +359,7 @@ class ConfigurationManager(object):
         )
 
         seed_env = context['seed_environment']
-        seed_env_name = self._get_seed_environment_name(
+        seed_env_name = self.get_seed_environment_name(
             environment,
         )
         if not seed_env_name:
