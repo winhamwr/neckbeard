@@ -47,9 +47,20 @@ class BaseNodeDeployment(object):
     backups to populate that instance, mounting EBS volumes and attaching
     elastic IPs.
     """
-    def __init__(self, deployment, seed_deployment, is_active, aws_type,
-                 node_name, seed_node_name, provisioner_conf, conf,
-                 seed_verification=False, *args, **kwargs):
+    def __init__(
+        self,
+        deployment,
+        seed_deployment,
+        is_active,
+        aws_type,
+        node_name,
+        seed_node_name,
+        brain_wrinkles,
+        conf,
+        seed_verification=False,
+        *args,
+        **kwargs
+    ):
         self.deployment = deployment
         self.seed_deployment = seed_deployment
         self.is_active = is_active
@@ -59,29 +70,22 @@ class BaseNodeDeployment(object):
         self._conf = conf
         self.seed_verification = seed_verification
 
-        provisioner_kls = import_class(provisioner_conf['path'])
-        if provisioner_kls is None:
+        # TODO: Support more than one brain wrinkle
+        brain_wrinkle = brain_wrinkles[brain_wrinkles.keys()[0]]
+        brain_wrinkle_kls = import_class(brain_wrinkle['path'])
+        if brain_wrinkle_kls is None:
             logger.critical(
-                "No provisioner class located at <%s>",
-                provisioner_conf['path'],
+                "No brain wrinkle class located at <%s>",
+                brain_wrinkle['path'],
             )
             exit(1)
 
-        # Set provisioner arg and kwarg defaults
-        provisioner_args = provisioner_conf.get('args')
-        if provisioner_args is None:
-            provisioner_args = []
-        provisioner_kwargs = provisioner_conf.get('kwargs')
-        if provisioner_kwargs is None:
-            provisioner_kwargs = {}
-
         self.node = self.get_node()
 
-        self.provisioner = provisioner_kls(
+        self.provisioner = brain_wrinkle_kls(
             node=self.node,
             conf=conf,
-            *provisioner_args,
-            **provisioner_kwargs)
+            **brain_wrinkle.get('init', {}))
 
         self.seed_node = None
         if self.seed_deployment:
