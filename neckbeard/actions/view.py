@@ -8,7 +8,12 @@ from neckbeard.environment_manager import Deployment
 logger = logging.getLogger('actions.view')
 
 
-def view(environment_name, configuration, resource_tracker, generation=ACTIVE):
+def view(
+    environment_name,
+    configuration_manager,
+    resource_tracker,
+    generation=ACTIVE,
+):
     """
     The view task output status information about all of the cloud resources
     associated with a specific generation of a specific deployment.
@@ -18,11 +23,14 @@ def view(environment_name, configuration, resource_tracker, generation=ACTIVE):
     generation_target = _get_gen_target()
 
     logger.info("Gathering deployment status")
+    environment_config = configuration_manager.get_environment_config(
+        environment_name,
+    )
     deployment = Deployment(
         environment_name,
-        configuration.get('ec2', {}),
-        configuration.get('rds', {}),
-        configuration.get('elb', {}),
+        environment_config.get('ec2', {}),
+        environment_config.get('rds', {}),
+        environment_config.get('elb', {}),
     )
     deployment.verify_deployment_state()
 
