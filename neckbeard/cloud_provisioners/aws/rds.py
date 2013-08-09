@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import dateutil.parser
 from boto import rds
+from boto.exception import BotoServerError
 from dateutil.tz import tzlocal
 from fabric.api import prompt
 
@@ -392,16 +393,133 @@ class RdsNodeDeployment(BaseNodeDeployment):
         node.refresh_boto_instance()
         return node.boto_instance.status == 'available'
 
+    def _get_all_db_parameters(self, group_name):
+        """
+        Create the named parameter group (if needed)
+        and return a list of all the db parameters, accounting for request
+        pagination.
+        """
+        rdsconn = self.deployment.rdsconn
+        all_parameters = []
+        try:
+            all_parameters = rdsconn.get_all_dbparameters(
+                groupname=group_name,
+                max_records=100,
+            )
+        except BotoServerError:
+            logger.info(
+                "RDS Parameter Group %s doesn't exist. Creating it.",
+                group_name,
+            )
+            # TODO: Detect the message `Invalid parameter group name:` Message
+            # to ensure that this isn't some other kind of error
+            rdsconn.create_parameter_group(name=group_name)
+            all_parameters = rdsconn.get_all_dbparameters(
+                groupname=group_name,
+                max_records=100,
+            )
+
+        def _get_pagination_marker(parameter_group):
+            # Determine if we got paginated results
+            pagination_marker = None
+            if hasattr(parameter_group, 'Marker'):
+                pagination_marker = parameter_group.Marker
+
+            return pagination_marker
+
+        pagination_marker = _get_pagination_marker(all_parameters)
+
+        while pagination_marker:
+            additional_parameters = rdsconn.get_all_dbparameters(
+                groupname=group_name,
+                max_records=100,
+                marker=pagination_marker,
+            )
+            all_parameters.update(additional_parameters)
+
+            pagination_marker = _get_pagination_marker(additional_parameters)
+
+        return all_parameters
+
+    def _validate_desired_parameter_group_configuration(
+        self,
+        group_name,
+        confs,
+    ):
+        """
+        Ensure that we're using proper types for our desired parameters.
+        """
+        valid_types = rds.parametergroup.Parameter.ValidTypes
+        for name, desired_value in confs.items():
+            is_valid = False
+            for type_method in valid_types.values():
+                if isinstance(desired_value, type_method):
+                    is_valid = True
+                    break
+            if not is_valid:
+                logger.critical(
+                    "Desired DB Parameter config error for group: %s",
+                    group_name,
+                )
+                logger.critical(
+                    "Desired value of '%s' for '%s' is an invalid type",
+                )
+                valid_type_names = ', '.join(valid_types.keys())
+                logger.critical("Should be one of: %s", valid_type_names)
+                exit(1)
+
     def configure_parameter_group(self, group_name, confs):
         """
-        Configure the RDS paramater group given by ``group_name`` with a
-        dict of ``confs`` with key => values for the paramters to modify.
+        Configure the RDS parameter group given by ``group_name`` with a
+        dict of ``confs`` with key => values for the parameters to modify.
         """
-        pg = rds.parametergroup.ParameterGroup(self.deployment.rdsconn)
-        pg.name = group_name
+        self._validate_desired_parameter_group_configuration(
+            group_name=group_name,
+            confs=confs,
+        )
+        current_parameters = self._get_all_db_parameters(group_name)
 
-        for name, value in confs.items():
-            param = rds.parametergroup.Parameter(pg, name)
-            param._value = value
-            param.apply_type = 'immediate'
-            param.apply(immediate=True)
+        parameters_to_modify = []
+        for parameter_name, desired_value in confs.items():
+            try:
+                current_parameter = current_parameters[parameter_name]
+            except KeyError:
+                logger.warning(
+                    "RDS Parameter '%s' does not currently exist",
+                    parameter_name,
+                )
+                current_parameter = rds.parametergroup.Parameter(
+                    group=current_parameters,
+                    name=parameter_name,
+                )
+                # Set the expected data type for validation
+                # The default is string
+                if isinstance(desired_value, int):
+                    current_parameter.type = 'integer'
+                elif isinstance(desired_value, bool):
+                    current_parameter.type = 'boolean'
+                elif isinstance(desired_value, str):
+                    current_parameter.type = 'string'
+
+            if current_parameter.type == str:
+                # Work-around for a boto 1.9 Parameter.type initialization bug
+                # Remove this when we drop support for boto 1.9
+                current_parameter.type = 'string'
+            if current_parameter.value != desired_value:
+                logger.info(
+                    "RDS Parameter Group %s requires change for %s",
+                    group_name,
+                    parameter_name,
+                )
+                logger.info("Current value: %s", current_parameter.value)
+                logger.info("Desired value: %s", desired_value)
+                current_parameter.value = desired_value
+                current_parameter.apply_method = 'immediate'
+                parameters_to_modify.append(current_parameter)
+
+        if parameters_to_modify:
+            logger.info("Modifying RDS Parameter Group: %s", group_name)
+            self.deployment.rdsconn.modify_parameter_group(
+                name=group_name,
+                parameters=parameters_to_modify,
+            )
