@@ -19,6 +19,14 @@ Use Neckbeard.
 ::
 
     $ neckbeard up
+    
+Video Introduction
+------------------
+
+Like videos?
+We have em: `Pycon Neckbeard Lightning Talk <http://youtu.be/OL3De8BAhME>`_
+
+This talk mostly covers the reason why Neckbeard needs to exist.
 
 Cloud-Native
 ------------
